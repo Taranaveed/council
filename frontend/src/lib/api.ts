@@ -46,27 +46,68 @@ async function handle<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+function networkErrorMessage(err: unknown): Error {
+  const raw = err instanceof Error ? err.message : String(err ?? '');
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(raw)) {
+    return new Error(
+      'Can’t reach the server. On free hosting it may be waking up — wait ~30s, open the site again, then retry.',
+    );
+  }
+  return err instanceof Error ? err : new Error(raw || 'Request failed');
+}
+
+/** Ping the API so a sleeping free-tier Render service wakes before auth. */
+export async function wakeApi(timeoutMs = 90000): Promise<boolean> {
+  const base = getApiBase();
+  const started = Date.now();
+  let delay = 1500;
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const ctrl = new AbortController();
+      const timer = window.setTimeout(() => ctrl.abort(), 20000);
+      const res = await fetch(`${base}/health`, { signal: ctrl.signal, cache: 'no-store' });
+      window.clearTimeout(timer);
+      if (res.ok) return true;
+    } catch {
+      // keep retrying while the free tier boots
+    }
+    await new Promise((r) => setTimeout(r, delay));
+    delay = Math.min(delay + 1000, 4000);
+  }
+  return false;
+}
+
 export async function resolveGeoFromIp(): Promise<GeoInfo> {
   const res = await fetch(`${getApiBase()}/api/geo/ip`);
   return handle(res);
 }
 
 export async function register(email: string, password: string): Promise<AuthResponse> {
-  const res = await fetch(`${getApiBase()}/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  return handle(res);
+  try {
+    await wakeApi(45000);
+    const res = await fetch(`${getApiBase()}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    return await handle(res);
+  } catch (err) {
+    throw networkErrorMessage(err);
+  }
 }
 
 export async function login(email: string, password: string): Promise<AuthResponse> {
-  const res = await fetch(`${getApiBase()}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  return handle(res);
+  try {
+    await wakeApi(45000);
+    const res = await fetch(`${getApiBase()}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    return await handle(res);
+  } catch (err) {
+    throw networkErrorMessage(err);
+  }
 }
 
 export async function fetchMe(): Promise<User> {

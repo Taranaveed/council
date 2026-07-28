@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { wakeApi } from '../lib/api';
 import './LoginPage.css';
 
 export function LoginPage() {
@@ -11,6 +12,18 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [apiReady, setApiReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const ok = await wakeApi(90000);
+      if (!cancelled) setApiReady(ok);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -40,7 +53,7 @@ export function LoginPage() {
         <header className="login-proto__brand-block">
           <p className="login-proto__live">
             <span className="login-proto__live-dot" />
-            Ready when you are
+            {apiReady ? 'Ready when you are' : 'Waking server…'}
           </p>
           <h1 className="login-proto__brand">
             <span>Council</span>
