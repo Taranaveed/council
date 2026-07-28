@@ -77,6 +77,33 @@ export async function wakeApi(timeoutMs = 90000): Promise<boolean> {
   return false;
 }
 
+/** Wake market-service via the API proxy (same host → no CORS issues on mobile). */
+export async function wakeMarket(timeoutMs = 90000): Promise<boolean> {
+  const base = getApiBase();
+  const started = Date.now();
+  let delay = 1500;
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const ctrl = new AbortController();
+      const timer = window.setTimeout(() => ctrl.abort(), 25000);
+      const res = await fetch(`${base}/api/market/ping`, {
+        signal: ctrl.signal,
+        cache: 'no-store',
+      });
+      window.clearTimeout(timer);
+      if (res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { status?: string };
+        if (data.status === 'ok') return true;
+      }
+    } catch {
+      // keep retrying
+    }
+    await new Promise((r) => setTimeout(r, delay));
+    delay = Math.min(delay + 1000, 4000);
+  }
+  return false;
+}
+
 export async function resolveGeoFromIp(): Promise<GeoInfo> {
   const res = await fetch(`${getApiBase()}/api/geo/ip`);
   return handle(res);
@@ -231,12 +258,18 @@ export async function runLaunchPack(
     variant_b_specs?: string;
   } & SellerEconomics,
 ): Promise<LaunchPackResult> {
-  const res = await fetch(`${getApiBase()}/api/modes/launch-pack`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(body),
-  });
-  return handle(res);
+  try {
+    await wakeApi(45000);
+    await wakeMarket(90000);
+    const res = await fetch(`${getApiBase()}/api/modes/launch-pack`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+    });
+    return await handle(res);
+  } catch (err) {
+    throw networkErrorMessage(err);
+  }
 }
 
 export async function runDealFinder(body: {
@@ -247,10 +280,16 @@ export async function runDealFinder(body: {
   quantity?: number;
   buying_mode?: 'retail' | 'bulk';
 }): Promise<ModeResult> {
-  const res = await fetch(`${getApiBase()}/api/modes/deal-finder`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(body),
-  });
-  return handle(res);
+  try {
+    await wakeApi(45000);
+    await wakeMarket(90000);
+    const res = await fetch(`${getApiBase()}/api/modes/deal-finder`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+    });
+    return await handle(res);
+  } catch (err) {
+    throw networkErrorMessage(err);
+  }
 }

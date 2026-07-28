@@ -1,6 +1,7 @@
 """HTTP client for the Node.js market-service."""
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 from typing import Any
@@ -9,7 +10,7 @@ import httpx
 
 from app.core.region_config import resolve_market_locale
 
-MARKET_SERVICE_URL = os.getenv("MARKET_SERVICE_URL", "http://localhost:3001")
+MARKET_SERVICE_URL = os.getenv("MARKET_SERVICE_URL", "http://localhost:3001").rstrip("/")
 _CACHE_TTL_SEC = float(os.getenv("MARKET_CACHE_TTL_SEC", "600"))
 _market_cache: dict[str, tuple[float, list[dict[str, Any]], str | None]] = {}
 
@@ -34,6 +35,23 @@ def _cache_key(
     )
 
 
+async def wake_market_service(timeout_sec: float = 90.0) -> bool:
+    """Ping market /health until the free-tier service is awake."""
+    deadline = time.time() + timeout_sec
+    delay = 1.5
+    while time.time() < deadline:
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(25.0, connect=10.0)) as client:
+                res = await client.get(f"{MARKET_SERVICE_URL}/health")
+                if res.status_code == 200:
+                    return True
+        except Exception as e:
+            print(f"[market_client] wake ping: {e}")
+        await asyncio.sleep(delay)
+        delay = min(delay + 1.0, 4.0)
+    return False
+
+
 async def fetch_market_prices(
     product_name: str,
     location: str | None = None,
@@ -47,7 +65,7 @@ async def fetch_market_prices(
     key = _cache_key(product_name, location, country_code, limit, preferred_currency)
     if use_cache and key in _market_cache:
         ts, listings, warning = _market_cache[key]
-        if time.time() - ts <= _CACHE_TTL_SEC:
+        if time.time() - ts <= _CACHE_TTL_SEC and listings:
             return [dict(x) for x in listings], warning
 
     locale = resolve_market_locale(location, country_code)
@@ -62,22 +80,38 @@ async def fetch_market_prices(
     if preferred_currency and str(preferred_currency).strip():
         payload["preferredCurrency"] = str(preferred_currency).strip().upper()
 
-    try:
-        # SerpApi + site scrapes + optional Playwright can exceed 60s for PK/local searches.
-        async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=15.0)) as client:
-            res = await client.post(f"{MARKET_SERVICE_URL}/market/prices", json=payload)
-            res.raise_for_status()
-            data = res.json()
-            listings = data.get("listings") or data.get("results") or data
-            warning = data.get("warning")
-            if isinstance(listings, list):
-                warn = str(warning) if warning else None
-                _market_cache[key] = (time.time(), listings, warn)
-                return listings, warn
-            return [], str(warning) if warning else "Unexpected market-service response"
-    except Exception as e:
-        print(f"[market_client] fetch failed: {e}")
-        return [], f"Market service unreachable: {e}"
+    last_error: str | None = None
+    # Free Render sleeps — wake + a few retries before giving up.
+    await wake_market_service(75.0)
+
+    for attempt in range(1, 4):
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=20.0)) as client:
+                res = await client.post(f"{MARKET_SERVICE_URL}/market/prices", json=payload)
+                # Cold proxy sometimes returns HTML/404 while booting.
+                if res.status_code in (404, 502, 503, 504):
+                    last_error = f"Market service HTTP {res.status_code}"
+                    print(f"[market_client] attempt {attempt}: {last_error}")
+                    await asyncio.sleep(2 * attempt)
+                    await wake_market_service(30.0)
+                    continue
+                res.raise_for_status()
+                data = res.json()
+                listings = data.get("listings") or data.get("results") or data
+                warning = data.get("warning")
+                if isinstance(listings, list):
+                    warn = str(warning) if warning else None
+                    if listings:
+                        _market_cache[key] = (time.time(), listings, warn)
+                    return listings, warn
+                last_error = str(warning) if warning else "Unexpected market-service response"
+        except Exception as e:
+            last_error = str(e)
+            print(f"[market_client] attempt {attempt} failed: {e}")
+            await asyncio.sleep(2 * attempt)
+            await wake_market_service(30.0)
+
+    return [], f"Market service unreachable: {last_error}"
 
 
 def format_market_block(

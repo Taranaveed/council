@@ -60,3 +60,13 @@ def on_startup():
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+@app.get("/api/market/ping")
+async def market_ping():
+    """Wake / check the market-service (used by the frontend before searches)."""
+    from app.core.market_client import wake_market_service
+
+    market = (os.getenv("MARKET_SERVICE_URL") or "").rstrip("/") or "unset"
+    ok = await wake_market_service(60.0)
+    return {"status": "ok" if ok else "waking", "market": market}

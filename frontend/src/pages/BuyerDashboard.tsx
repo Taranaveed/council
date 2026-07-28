@@ -265,6 +265,7 @@ export function BuyerDashboard() {
       {loading && (
         <SteppedLoading
           steps={[
+            isBulk ? 'Waking sellers search…' : 'Waking live prices…',
             isBulk ? 'Finding wholesale & local sellers…' : 'Checking live local prices…',
             'Weighing risk vs value…',
             isBulk ? 'Gathering seller links…' : 'Picking buy or skip…',
