@@ -300,7 +300,7 @@ function EmptyState() {
       <div>
         <p className="text-sm font-medium text-slate-300">No simulation yet</p>
         <p className="text-xs text-slate-600 mt-1 max-w-xs">
-          Fill in your product details and hit <strong className="text-slate-500">Run Focus Group</strong> to start the AI debate.
+          Fill in your product details and hit <strong className="text-slate-500">Run Council</strong> to start the AI debate.
         </p>
       </div>
     </div>

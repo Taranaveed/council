@@ -1,233 +1,118 @@
-# Dialectic Node
+# Council
 
-A sophisticated multi-agent debate system that simulates structured dialectical discourse between AI agents. Experience real-time debates on complex topics with proponent, opponent, and judge agents.
+Multi-agent AI platform for **Business Owners** (pricing + audience) and **Buyers** (local deal finder).
 
-##  Features
+Agents debate like a council — then deliver one clear call.
 
-- **Real-time Streaming**: Watch debates unfold live with streaming responses
-- **Multi-Agent Architecture**: Proponent defends the thesis, Opponent critiques it, Judge evaluates the discourse
-- **Structured Debate**: Each round follows a formal dialectical structure with reasoning and argumentation
-- **Modern UI**: Sleek terminal-inspired interface with live typing effects
-- **RESTful API**: FastAPI backend with comprehensive debate management
-- **Type-Safe**: Full TypeScript support on frontend and backend
+## Architecture flow
 
-##  Architecture
+```
+Login → Role Selection → Service Form → Live Market Sync (Node/SerpApi) → 3-Agent Debate (Groq) → Judge → Dashboard
+```
 
-### Backend (FastAPI)
-- **Framework**: FastAPI with async support
-- **LLM Integration**: Groq API with Llama 3.3 70B model
-- **Streaming**: Server-Sent Events (SSE) for real-time updates
-- **Data Models**: Pydantic for type safety
-- **CORS**: Configured for frontend integration
+## Services
 
-### Frontend (React + Vite)
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite for fast development
-- **Styling**: Tailwind CSS with custom terminal theme
-- **State Management**: React hooks with custom debate stream hook
-- **Real-time**: EventSource for SSE consumption
+| Role | Service | Endpoint |
+|------|---------|----------|
+| Business | Price Bargaining | `POST /api/modes/price-bargaining` |
+| Business | Audience Discovery | `POST /api/modes/audience-discovery` |
+| Buyer | Local Deal Finder | `POST /api/modes/deal-finder` |
 
-##  Quick Start
+## Prerequisites
 
-### Prerequisites
-- Python 3.8+
+- Python 3.10+
 - Node.js 18+
-- Git
+- Groq API key
+- SerpApi key (for live prices; optional — agents still run with empty market data)
 
-### Installation
+## Environment
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Taranaveed/dialectic-node.git
-   cd dialectic-node
-   ```
+### Backend (`backend/.env`)
 
-2. **Backend Setup**
-   ```bash
-   cd backend
-   python -m venv venv
-   # On Windows
-   venv\Scripts\activate
-   # On macOS/Linux
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
+```env
+GROQ_API_KEY=your_groq_key
+JWT_SECRET=change-me-in-production
+JWT_EXPIRE_HOURS=72
+MARKET_SERVICE_URL=http://localhost:3001
 
-3. **Environment Variables**
-   Create a `.env` file in the backend directory:
-   ```env
-   GROQ_API_KEY=your_groq_api_key_here
-   ```
-
-4. **Frontend Setup**
-   ```bash
-   cd ../frontend
-   npm install
-   ```
-
-### Running the Application
-
-1. **Start Backend**
-   ```bash
-   cd backend
-   # Activate virtual environment if not already
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
-
-2. **Start Frontend** (in a new terminal)
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-
-3. **Open Browser**
-   Navigate to `http://localhost:5173`
-
-## Usage
-
-1. Enter a thesis statement (e.g., "Artificial Intelligence will benefit humanity")
-2. Set the number of debate rounds (1-10)
-3. Click "Start Debate"
-4. Watch the real-time debate unfold between:
-   - **Proponent**: Defends the thesis with reasoned arguments
-   - **Opponent**: Critiques and challenges the proponent's position
-   - **Judge**: Evaluates the debate quality and declares a verdict
-
-##  API Documentation
-
-### Endpoints
-
-#### POST `/debate/start`
-Initialize a new debate session.
-
-**Request Body:**
-```json
-{
-  "thesis": "Your thesis statement here",
-  "max_rounds": 3,
-  "model": "llama-3.3-70b-versatile"
-}
+# Global defaults (do not hardcode Pakistan for worldwide launches)
+DEFAULT_REGION=us
+DEFAULT_COUNTRY_CODE=us
+DEFAULT_LOCATION=United States
+DEFAULT_LANGUAGE=en
 ```
 
-**Response:**
-```json
-{
-  "debate_id": "uuid-string",
-  "status": "initialized"
-}
+### Market service (`market-service/.env`)
+
+```env
+SERPAPI_KEY=your_serpapi_key
+PORT=3001
+DEFAULT_REGION=us
+DEFAULT_COUNTRY_CODE=us
+DEFAULT_LOCATION=United States
+DEFAULT_LANGUAGE=en
 ```
 
-#### GET `/debate/stream/{debate_id}`
-Stream the debate in real-time using Server-Sent Events.
+User-entered locations (Paris, New York, Lahore, etc.) still drive SerpApi `gl` / marketplaces; these env vars are only the fallback when location is missing.
 
-**Events:**
-- `turn_start`: Indicates start of a speaker's turn
-- `token`: Streaming token data
-- `turn_end`: Complete response for a speaker
-- `judge_verdict`: Final evaluation
-- `debate_complete`: Debate finished
+## Run (3 terminals)
 
-#### GET `/debate/result/{debate_id}`
-Get the complete debate transcript and results.
+### 1. Market service
 
-##  Agent System
+```bash
+cd market-service
+npm install
+npm start
+```
 
-### Proponent Agent
-- **Role**: Defends the thesis statement
-- **Structure**: Uses chain-of-thought reasoning with `<reasoning>` and `<argument>` tags
-- **Prompt**: Charitable interpretation with evidence-based defense
+### 2. Backend
 
-### Opponent Agent
-- **Role**: Critiques and challenges the thesis
-- **Structure**: Analytical approach with `<analysis>` and `<critique>` tags
-- **Prompt**: Skeptical but fair examination
-
-### Judge Agent
-- **Role**: Meta-analyst evaluating discourse quality
-- **Evaluation**: Coherence, evidence, rigor, precision, novelty, fairness
-- **Verdict**: Structured assessment with justification
-
-## UI Components
-
-- **Debate Stage**: Main interface with controls and live terminals
-- **Terminal Panels**: Real-time streaming for each agent
-- **Transcript Panels**: Complete debate history
-- **Verdict Display**: Judge's evaluation with scoring
-
-## 🛠️ Development
-
-### Backend Development
 ```bash
 cd backend
-# Install dev dependencies
-pip install -r requirements-dev.txt
-# Run tests
-pytest
-# Format code
-black .
+python -m venv venv
+# Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Frontend Development
+### 3. Frontend
+
 ```bash
 cd frontend
-# Install dependencies
 npm install
-# Start dev server
 npm run dev
-# Build for production
-npm run build
-# Preview production build
-npm run preview
 ```
 
-## Project Structure
+Open http://localhost:5173
 
-```
-dialectic-node/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI application
-│   │   ├── api/
-│   │   │   └── debate.py        # Debate endpoints
-│   │   ├── core/
-│   │   │   └── llm_service.py   # Groq integration
-│   │   ├── models/
-│   │   │   └── debate.py        # Data models
-│   │   └── agents/
-│   │       ├── prompts.py       # Agent prompts
-│   │       └── __init__.py
-│   ├── requirements.txt
-│   └── venv/                    # Virtual environment
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   └── DebateStage.tsx  # Main component
-│   │   ├── hooks/
-│   │   │   └── useDebateStream.ts # Streaming hook
-│   │   ├── types/
-│   │   │   └── debate.ts        # TypeScript types
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── tailwind.config.js
-├── .gitignore
-└── README.md
-```
+1. Register / sign in
+2. Choose Business or Buyer
+3. Run a service
 
-##  Environment Variables
+## Global CDN / nearest region
 
-### Backend
-- `GROQ_API_KEY`: Your Groq API key (required)
+For production, put **Cloudflare** (or AWS CloudFront + global accelerator) in front of the app so users in Lahore, New York, or London hit the nearest edge.
 
- 
+1. Point your domain at Cloudflare CDN / Load Balancing.
+2. Deploy API instances in regions (e.g. `us`, `eu`, `asia`).
+3. Set frontend env:
+   ```env
+   VITE_API_URL=https://api.example.com
+   VITE_API_URL_US=https://us.api.example.com
+   VITE_API_URL_EU=https://eu.api.example.com
+   VITE_API_URL_ASIA=https://asia.api.example.com
+   ```
+4. `GET /api/geo/ip` uses Cloudflare `CF-IPCountry` when present, otherwise an IP geolocation API, then:
+   - pre-fills Buyer **Location**
+   - selects nearest API region
+   - loads marketplaces with `country_code`
 
- 
+## Auth
 
-## Acknowledgments
+- Simple email/password (SQLite at `backend/data/users.db`)
+- JWT bearer tokens
+- Protected mode endpoints require `Authorization: Bearer <token>`
 
-- **Groq**: For providing fast LLM inference
-- **FastAPI**: For the excellent async web framework
-- **React**: For the component-based UI framework
-- **Tailwind CSS**: For the utility-first styling approach
+## Legacy
 
+`POST /focus-group/run` and debate streaming routes remain available but are not used by the new UI.

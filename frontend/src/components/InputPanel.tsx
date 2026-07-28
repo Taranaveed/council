@@ -1,18 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import type { FocusGroupInput } from '../types/focusGroup';
+import { CURRENCIES } from '../lib/currencies';
 
 interface InputPanelProps {
   onSubmit: (data: FocusGroupInput) => void;
   loading: boolean;
 }
-
-const CURRENCIES = [
-  { code: 'USD', label: 'USD ($)' },
-  { code: 'PKR', label: 'PKR (Rs)' },
-  { code: 'GBP', label: 'GBP (£)' },
-  { code: 'EUR', label: 'EUR (€)' },
-  { code: 'INR', label: 'INR (₹)' },
-] as const;
 
 const EMPTY: FocusGroupInput = {
   product_name: '',
@@ -44,7 +37,7 @@ export function InputPanel({ onSubmit, loading }: InputPanelProps) {
         <div className="flex items-center gap-2.5 mb-3">
           <span className="text-2xl">🧪</span>
           <span className="text-lg font-semibold tracking-tight text-white">
-            Synthetic Focus Group
+            Council
           </span>
         </div>
         <p className="text-sm text-slate-400 leading-relaxed">
@@ -81,9 +74,9 @@ export function InputPanel({ onSubmit, loading }: InputPanelProps) {
               disabled={loading}
               className={selectCls}
             >
-              {CURRENCIES.map(c => (
+              {CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
-                  {c.label}
+                  {c.code}
                 </option>
               ))}
             </select>
@@ -133,7 +126,7 @@ export function InputPanel({ onSubmit, loading }: InputPanelProps) {
             ) : (
               <>
                 <span>▶</span>
-                Run Focus Group
+                Run Council
               </>
             )}
           </button>

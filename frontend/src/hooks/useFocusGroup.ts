@@ -22,7 +22,7 @@ export function useFocusGroup() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail ?? 'The focus group simulation failed.');
+        throw new Error(err.detail ?? 'The council debate failed.');
       }
 
       const data: FocusGroupResult = await res.json();

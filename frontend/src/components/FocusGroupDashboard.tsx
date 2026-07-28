@@ -16,7 +16,7 @@ export function FocusGroupDashboard() {
       <header className="flex-shrink-0 border-b border-white/5 px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-indigo-600 text-xs">🧪</span>
-          <span className="text-sm font-semibold text-white tracking-tight">Synthetic Focus Group</span>
+          <span className="text-sm font-semibold text-white tracking-tight">Council</span>
           <span className="ml-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/20">
             BETA
           </span>
