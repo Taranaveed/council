@@ -11,7 +11,13 @@ const REGION_ENV: Record<string, string | undefined> = {
   asia: import.meta.env.VITE_API_URL_ASIA,
 };
 
-const DEFAULT_API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+function cleanBase(url: unknown): string {
+  return String(url ?? '')
+    .trim()
+    .replace(/\/+$/, '');
+}
+
+const DEFAULT_API = cleanBase(import.meta.env.VITE_API_URL) || 'http://localhost:8000';
 
 let cachedBase: string | null = null;
 let cachedRegion: string | null = null;
@@ -27,8 +33,8 @@ export function getApiRegion(): string | null {
 export function setApiRegion(region: string | null | undefined) {
   const key = (region || '').toLowerCase();
   cachedRegion = key || null;
-  const regional = key ? REGION_ENV[key] : undefined;
-  cachedBase = (regional && String(regional).trim()) || DEFAULT_API;
+  const regional = key ? cleanBase(REGION_ENV[key]) : '';
+  cachedBase = regional || DEFAULT_API;
   return cachedBase;
 }
 
