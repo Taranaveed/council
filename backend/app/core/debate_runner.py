@@ -59,9 +59,10 @@ async def run_agent_debate(
     context: str,
     agents: list[tuple[str, str]],
     judge_prompt: str,
-    agent_max_tokens: int = 280,
-    judge_max_tokens: int = 600,
+    agent_max_tokens: int = 600,
+    judge_max_tokens: int = 1200,
     fixed_replies: dict[str, str] | None = None,
+    judge_context: str | None = None,
 ) -> tuple[dict[str, str], dict[str, Any], str | None]:
     """
     Run agents sequentially; each later agent sees all prior turns.
@@ -89,6 +90,11 @@ async def run_agent_debate(
                     model=MODEL,
                     max_tokens=agent_max_tokens,
                 )
+                if not str(reply or "").strip():
+                    reply = (
+                        "I could not complete a full argument this round. "
+                        "Use the live listings block in the user context as the evidence base."
+                    )
             except Exception as e:
                 raise HTTPException(status_code=502, detail=f"{name} failed: {e}") from e
 
@@ -96,17 +102,26 @@ async def run_agent_debate(
         prior_blocks.append(f"{name}'s argument:\n{transcript[name]}")
 
     transcript_text = "\n\n".join(f"{name}:\n{text}" for name, text in transcript.items())
+    listings_block = str(judge_context or context or "").strip()
+    judge_user = (
+        f"LIVE LISTINGS BLOCK (source of truth — never say listings were missing if this is non-empty):\n"
+        f"{listings_block}\n\n"
+        f"Debate transcript:\n{transcript_text}"
+    )
 
     try:
         judge_raw = await generate_non_streaming(
-            _build(judge_prompt, f"Debate transcript:\n{transcript_text}"),
+            _build(judge_prompt, judge_user),
             model=MODEL,
-            max_tokens=judge_max_tokens,
+            max_tokens=max(judge_max_tokens, 1400),
             temperature=0.2,
             json_mode=True,
         )
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Judge failed: {e}") from e
+        raise HTTPException(
+            status_code=502,
+            detail="The judge could not finish this run. Wait a moment and try again.",
+        ) from e
 
     verdict = extract_json(judge_raw)
     if not verdict:
@@ -124,9 +139,10 @@ async def run_three_agent_debate(
     agent3_prompt: str,
     agent3_name: str,
     judge_prompt: str,
-    agent_max_tokens: int = 280,
-    judge_max_tokens: int = 600,
+    agent_max_tokens: int = 600,
+    judge_max_tokens: int = 1200,
     fixed_replies: dict[str, str] | None = None,
+    judge_context: str | None = None,
 ) -> tuple[dict[str, str], dict[str, Any], str | None]:
     """Backward-compatible 3-agent wrapper."""
     return await run_agent_debate(
@@ -140,4 +156,5 @@ async def run_three_agent_debate(
         agent_max_tokens=agent_max_tokens,
         judge_max_tokens=judge_max_tokens,
         fixed_replies=fixed_replies,
+        judge_context=judge_context,
     )
