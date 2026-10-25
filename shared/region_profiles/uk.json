@@ -1,0 +1,89 @@
+{
+  "id": "uk",
+  "version": "region_uk_v1",
+  "country_code": "uk",
+  "display_name": "United Kingdom",
+  "currency": "GBP",
+  "currency_symbols": ["£", "GBP"],
+  "language": "en",
+  "accept_language": "en-GB,en;q=0.9",
+  "locale": "en-GB",
+  "trade_zone": "UK",
+  "fx_to_usd_fallback": 1.27,
+  "fx_note": "Static fallback only (GBP per USD ≈ 1.27 as USD multiplier from GBP). Live FX preferred.",
+  "serp": {
+    "default_location": "United Kingdom",
+    "shopping_gl_supported": true,
+    "preferred_engine": "google_shopping",
+    "site_tld_pass": ".co.uk",
+    "city_aliases": [
+      { "match": "london", "serp_location": "London,England,United Kingdom" },
+      { "match": "manchester", "serp_location": "Manchester,England,United Kingdom" },
+      { "match": "birmingham", "serp_location": "Birmingham,England,United Kingdom" },
+      { "match": "edinburgh", "serp_location": "Edinburgh,Scotland,United Kingdom" },
+      { "match": "glasgow", "serp_location": "Glasgow,Scotland,United Kingdom" }
+    ]
+  },
+  "local_host_patterns": [
+    "amazon\\.co\\.uk",
+    "ebay\\.co\\.uk",
+    "argos\\.",
+    "johnlewis\\.",
+    "currys\\.",
+    "ao\\.com",
+    "tesco\\.",
+    "sainsbury\\.",
+    "diy\\.com",
+    "screwfix\\.",
+    "toolstation\\.",
+    "europages\\.",
+    "\\.co\\.uk(\\/|$)"
+  ],
+  "local_marketplace_slugs": ["ebay_uk", "amazon_uk", "local_retailers_uk"],
+  "wholesale_origin_preference": ["UK", "EU", "CN"],
+  "direct_adapters": [],
+  "import_origin_groups": {
+    "domestic": ["UK", "GB"],
+    "import": ["EU", "CN", "US", "ROW"]
+  },
+  "min_plausible_price_retail": 5,
+  "min_plausible_price_bulk": 0.05,
+  "drop_stub_price_below": null,
+  "sales_tax": {
+    "rate": 0.2,
+    "effective_date": "2026-01-01",
+    "source_url": "https://www.gov.uk/vat-rates",
+    "label": "UK standard VAT 20% assumption on CIF+duty+freight when buyer not VAT-registered"
+  },
+  "duty": {
+    "fallback": {
+      "rate_mid": 0.12,
+      "rate_low": 0.02,
+      "rate_high": 0.22,
+      "effective_date": "2026-01-01",
+      "source_url": "assumption://uk-currency-duty-fallback",
+      "label": "Flat UK import duty fallback (not HS-coded) — assumption, not HMRC tariff"
+    },
+    "lookup": []
+  },
+  "freight_usd_per_kg": {
+    "low": 6.0,
+    "mid": 10.0,
+    "high": 16.0,
+    "effective_date": "2026-01-01",
+    "source_url": "assumption://cn-air-freight-band",
+    "label": "CN→destination air freight band (assumption)"
+  },
+  "shipping_flat_local": {
+    "amount": 45,
+    "currency": "GBP",
+    "effective_date": "2026-01-01",
+    "source_url": "assumption://uk-flat-inbound",
+    "label": "Flat inbound placeholder when weight unknown"
+  },
+  "regulatory_focus": "Quote GBP. Distance-selling returns and data-protection rules may apply when sourced as facts. Post-Brexit: non-UK sellers may trigger customs/VAT. EU, CN, and rest-of-world origins are all import for landed-cost purposes.",
+  "prompt_examples": {
+    "currency_label": "GBP / £",
+    "avoid_city_list": []
+  }
+}
