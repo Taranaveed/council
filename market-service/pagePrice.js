@@ -10,6 +10,8 @@ import {
   maybeUnscaleMarketplacePrice,
   parsePriceNumber,
 } from "./priceParse.js";
+import { annotateListingTiers } from "./listingTiers.js";
+import { applyPageFacts, extractPageFacts } from "./pageFacts.js";
 
 const PRICE_RE =
   /(?:Rs\.?|PKR|USD|INR|AED|SAR|EUR|GBP)\s*[\d,]+(?:\.\d+)?|\$\s*[\d,]+(?:\.\d+)?|£\s*[\d,]+(?:\.\d+)?|€\s*[\d,]+(?:\.\d+)?|\b[\d,]+(?:\.\d+)?\s*(?:Rs\.?|PKR)\b/i;
@@ -160,16 +162,21 @@ function extractFromMeta(html, url = "", defaultCurrency = "USD") {
 }
 
 function extractFromDataAttrs(html, url = "", defaultCurrency = "USD") {
-  // Prefer human-facing priceShow / display fields before raw integer "price" (often ×100 on Daraz)
+  // Prefer sale / current price — never compare_at / struck-through list price
   const preferPatterns = [
+    /"sale_price"\s*:\s*"?([\d,.]+)"?/i,
+    /"salePrice"\s*:\s*"?([\d,.]+)"?/i,
     /"priceShow"\s*:\s*"([^"]+)"/i,
     /"displayPrice"\s*:\s*"([^"]+)"/i,
     /"priceDisp"\s*:\s*"([^"]+)"/i,
     /data-price-show=["']([^"']+)["']/i,
+    /"price"\s*:\s*"?([\d,.]+)"?/i,
   ];
   for (const re of preferPatterns) {
     const m = html.match(re);
     if (m?.[1] && /\d/.test(m[1])) {
+      // Skip compare_at / was_price keys accidentally matched nearby
+      if (/compare[_-]?at|was[_-]?price|regular[_-]?price|list[_-]?price/i.test(m[0])) continue;
       let n = parsePriceNumber(m[1]);
       if (n == null) continue;
       n = maybeUnscaleMarketplacePrice(n, m[1], { html, url });
@@ -178,12 +185,28 @@ function extractFromDataAttrs(html, url = "", defaultCurrency = "USD") {
     }
   }
 
+  // Shopify often exposes both price and compare_at_price — take the lower current price when both parse
+  const shopifyPrice = html.match(/"price"\s*:\s*(\d+)/i);
+  const shopifyCompare = html.match(/"compare_at_price"\s*:\s*(\d+)/i);
+  if (shopifyPrice?.[1]) {
+    let n = Number(shopifyPrice[1]);
+    // Shopify money is often in cents
+    if (Number.isFinite(n) && n >= 1000 && String(shopifyPrice[1]).length >= 4) {
+      const asMajor = n / 100;
+      if (asMajor >= 1 && asMajor <= 5_000_000) n = asMajor;
+    }
+    if (Number.isFinite(n) && n > 0) {
+      return formatMoney(n, defaultCurrency);
+    }
+  }
+  void shopifyCompare; // intentionally ignored — strike / original price
+
   const patterns = [
+    /data-sale-price=["']([\d,.]+)["']/i,
     /data-price=["']([\d,.]+)["']/i,
     /data-price-amount=["']([\d,.]+)["']/i,
     /itemprop=["']price["'][^>]*content=["']([\d,.]+)["']/i,
     /content=["']([\d,.]+)["'][^>]*itemprop=["']price["']/i,
-    /"price"\s*:\s*"?([\d,.]+)"?/i,
   ];
   for (const re of patterns) {
     const m = html.match(re);
@@ -198,8 +221,15 @@ function extractFromDataAttrs(html, url = "", defaultCurrency = "USD") {
   return null;
 }
 
+function stripStruckThroughHtml(html) {
+  // Remove struck / compare-at markup so text scrape cannot prefer the crossed-out price
+  return String(html || "")
+    .replace(/<(?:s|strike|del)\b[^>]*>[\s\S]*?<\/(?:s|strike|del)>/gi, " ")
+    .replace(/<[^>]+(?:line-through|text-decoration:\s*line-through)[^>]*>[\s\S]*?<\/[^>]+>/gi, " ");
+}
+
 function extractFromHtmlText(html, defaultCurrency = "USD") {
-  const text = html
+  const text = stripStruckThroughHtml(html)
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<[^>]+>/g, " ")
@@ -254,7 +284,7 @@ function needsBrowser(url) {
   return /daraz\.|olx\.com\.pk|priceoye\.|homeshopping\./i.test(String(url || ""));
 }
 
-async function fetchHtmlSimple(url, { timeoutMs = 8000 } = {}) {
+async function fetchHtmlSimple(url, { timeoutMs = 5000 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -381,7 +411,7 @@ function pageMatchesQuery(html, url, query) {
  */
 export async function fetchPageDetails(
   url,
-  { timeoutMs = 8000, query = "", allowPlaywright = true, defaultCurrency = "USD" } = {},
+  { timeoutMs = 5000, query = "", allowPlaywright = true, defaultCurrency = "USD" } = {},
 ) {
   if (!url || !/^https?:\/\//i.test(url)) return null;
 
@@ -393,6 +423,7 @@ export async function fetchPageDetails(
     return {
       price: price && !isWeakPrice(price) ? price : null,
       title: title && !isWeakTitle(title) ? title : null,
+      html: String(html || "").slice(0, 100_000),
     };
   };
 
@@ -429,7 +460,15 @@ export async function fetchPagePrice(url, opts = {}) {
  */
 export async function enrichListingsWithPagePrices(
   listings,
-  { maxFetches = 6, gl, query = "", preferredCurrency = null, concurrency = 3 } = {},
+  {
+    maxFetches = 6,
+    gl,
+    query = "",
+    preferredCurrency = null,
+    concurrency = 3,
+    preferIndexes = [],
+    allowPlaywright = true,
+  } = {},
 ) {
   if (!Array.isArray(listings) || !listings.length) return listings || [];
 
@@ -441,6 +480,10 @@ export async function enrichListingsWithPagePrices(
         ? /amazon\.in|flipkart\.|indiamart\./i
         : /amazon\.|ebay\.|walmart\.|bestbuy\.|noon\./i;
 
+  const preferSet = new Set(
+    (preferIndexes || []).map((n) => Number(n)).filter((n) => Number.isFinite(n) && n >= 0),
+  );
+
   const ranked = listings.map((item, index) => {
     const link = String(item.link || "");
     const weak = isWeakPrice(item.price);
@@ -448,6 +491,7 @@ export async function enrichListingsWithPagePrices(
     const localHost = localHostRe.test(link);
     const foreignHint = /\$|usd|£|€/i.test(String(item.price || ""));
     let priority = 0;
+    if (preferSet.has(index) || item.best_pick) priority += 100; // always fetch top pick / preferred
     if (weak) priority += 40;
     if (weakTitle) priority += 45;
     if (localHost) priority += 30;
@@ -456,6 +500,7 @@ export async function enrichListingsWithPagePrices(
       priority -= 20;
     }
     if (item.price_source === "snippet") priority += 10;
+    if (index < 3) priority += 25; // top-ranked rows after filter
     return { item, index, weak, priority };
   });
   ranked.sort((a, b) => b.priority - a.priority || a.index - b.index);
@@ -477,20 +522,27 @@ export async function enrichListingsWithPagePrices(
       if (/\/tag\//i.test(link) || /instagram|tiktok|facebook|youtube/i.test(link)) {
         continue;
       }
-      // Google Shopping intermediate pages are not real product pages — keep SERP price
       if (/google\.[^/\s]+\/search/i.test(link) && /(?:ibp=oshop|tbm=shop)/i.test(link)) {
         continue;
       }
-      // Weak titles skip pre-check — page title is the real match signal
       if (!isWeakTitle(item.title) && query && productMatchScore(item, query) == null) {
         continue;
       }
-      const defaultCurrency =
-        String(preferredCurrency || "").toUpperCase() ||
-        (code === "pk" ? "PKR" : code === "uk" || code === "gb" ? "GBP" : "USD");
+      // Factory/B2B hosts quote USD. Never default their scrape to the buyer's
+      // preferredCurrency (e.g. GBP) — that rewrites "$11" / bare "11" into "£11".
+      const factoryHost =
+        /alibaba\.|made-in-china\.|dhgate\.|globalsources\.|aliexpress\.|1688\./i.test(
+          link,
+        ) || Boolean(item.wholesale) || String(item.supplier_origin || "").toUpperCase() === "CN";
+      const defaultCurrency = factoryHost
+        ? "USD"
+        : String(preferredCurrency || "").toUpperCase() ||
+          (code === "pk" ? "PKR" : code === "uk" || code === "gb" ? "GBP" : "USD");
       const details = await fetchPageDetails(item.link, {
         query,
         defaultCurrency,
+        allowPlaywright,
+        timeoutMs: allowPlaywright ? 6000 : 4500,
       });
       if (!details) {
         if (isWeakTitle(item.title)) drop.add(index);
@@ -498,13 +550,13 @@ export async function enrichListingsWithPagePrices(
       }
       const pagePrice = details.price;
       const pageTitle = details.title;
+      let skipPrice = false;
       if (pagePrice && !isWeakPrice(pagePrice)) {
         const digits = Number(String(pagePrice).replace(/,/g, "").replace(/[^\d.]/g, ""));
-        if (code === "pk" && digits > 0 && digits < 1000) continue;
+        if (code === "pk" && digits > 0 && digits < 1000) skipPrice = true;
         const title = String(pageTitle || item.title || "");
-        if (digits && new RegExp(`under\\s*${Math.round(digits)}`, "i").test(title)) continue;
+        if (digits && new RegExp(`under\\s*${Math.round(digits)}`, "i").test(title)) skipPrice = true;
 
-        // Never replace a good snippet price with a wrong-currency page scrape
         const expected = String(preferredCurrency || "").toUpperCase();
         const snippetOk = !isWeakPrice(item.price);
         const pageCur = detectCurrency(pagePrice);
@@ -519,19 +571,67 @@ export async function enrichListingsWithPagePrices(
           if (pageTitle && isWeakTitle(item.title)) {
             updates.set(index, { title: pageTitle });
           }
-          continue;
+          skipPrice = true;
         }
 
-        updates.set(index, {
-          price: pagePrice,
-          price_source: "page",
-          ...(pageTitle ? { title: pageTitle } : {}),
-        });
+        if (!skipPrice) {
+          updates.set(index, {
+            price: pagePrice,
+            price_source: "page",
+            ...(pageTitle ? { title: pageTitle } : {}),
+          });
+        }
       } else if (pageTitle && isWeakTitle(item.title)) {
         updates.set(index, { title: pageTitle });
       } else if (isWeakTitle(item.title) && !pageTitle) {
         drop.add(index);
       }
+
+      const prev = updates.get(index) || {};
+      const merged = annotateListingTiers(
+        { ...item, ...prev },
+        { html: details.html || "", defaultCurrency },
+      );
+      const facts = extractPageFacts(details.html || "", {
+        url: link,
+        pagePrice: pagePrice && !isWeakPrice(pagePrice) ? pagePrice : null,
+      });
+      const withFacts = applyPageFacts(merged, facts, { html: details.html || "" });
+      updates.set(index, {
+        ...prev,
+        ...(withFacts.moq != null ? { moq: withFacts.moq, moq_source: withFacts.moq_source } : {}),
+        ...(withFacts.price_tiers
+          ? { price_tiers: withFacts.price_tiers, tiers_source: withFacts.tiers_source }
+          : {}),
+        ...(withFacts.package_weight_kg != null
+          ? {
+              package_weight_kg: withFacts.package_weight_kg,
+              package_weight_raw: withFacts.package_weight_raw,
+              package_weight_source: withFacts.package_weight_source,
+            }
+          : {}),
+        warranty: withFacts.warranty,
+        warranty_source: withFacts.warranty_source,
+        policy_links: withFacts.policy_links,
+        policy_links_source: withFacts.policy_links_source,
+        variants: withFacts.variants,
+        variants_source: withFacts.variants_source,
+        is_product_page: withFacts.is_product_page,
+        page_facts_fetched: true,
+        unit_price_verified: withFacts.unit_price_verified,
+        has_moq: withFacts.has_moq,
+        has_price_tier: withFacts.has_price_tier,
+        ...(withFacts.price && isWeakPrice(item.price) && isWeakPrice(prev.price)
+          ? { price: withFacts.price, price_source: "tier" }
+          : {}),
+        ...(withFacts.unit_price_rejected
+          ? {
+              price: "See listing",
+              price_source: "rejected_storefront",
+              unit_price_rejected: withFacts.unit_price_rejected,
+            }
+          : {}),
+      });
     }
   }
 

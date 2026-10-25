@@ -85,3 +85,39 @@ describe("RegionProfile Phase 1", () => {
     );
   });
 });
+
+describe("SERP $ under UK request stays USD", () => {
+  it("annotateListingCurrency keeps $11 as USD with currency_mismatch vs GBP", async () => {
+    const { annotateListingCurrency } = await import("../currency.js");
+    const row = annotateListingCurrency(
+      {
+        title: "Phone case",
+        price: "$11.00",
+        link: "https://www.alibaba.com/product-detail/x_1.html",
+        supplier_origin: "CN",
+      },
+      "uk",
+      "GBP",
+    );
+    assert.equal(row.currency, "USD");
+    assert.equal(row.currency_mismatch, true);
+    assert.match(String(row.price), /\$/);
+  });
+
+  it("factory £ rewrite under UK preferredCurrency is corrected to USD", async () => {
+    const { annotateListingCurrency } = await import("../currency.js");
+    const row = annotateListingCurrency(
+      {
+        title: "Phone case",
+        price: "£11.00",
+        link: "https://www.alibaba.com/product-detail/x_2.html",
+        wholesale: true,
+      },
+      "uk",
+      "GBP",
+    );
+    assert.equal(row.currency, "USD");
+    assert.equal(row.currency_mismatch, true);
+    assert.match(String(row.price), /\$/);
+  });
+});
