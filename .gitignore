@@ -11,12 +11,15 @@ backend/data/
 frontend/node_modules/
 frontend/dist/
 frontend/.env
+frontend/.env.local
+frontend/.env.*.local
 market-service/node_modules/
 market-service/.env
 
 # Local / IDE
 .cursor/
 *.log
+scripts/_smoke_rerun_logs/
 
 # OS
 .DS_Store
