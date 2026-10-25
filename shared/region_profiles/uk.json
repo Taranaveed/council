@@ -74,6 +74,13 @@
     "source_url": "assumption://cn-air-freight-band",
     "label": "CN→destination air freight band (assumption)"
   },
+  "minimum_freight_charge": {
+    "amount": 45,
+    "currency": "GBP",
+    "effective_date": "2026-01-01",
+    "source_url": "assumption://uk-minimum-inbound-freight",
+    "label": "Estimated minimum inbound freight charge (not a carrier quote)"
+  },
   "shipping_flat_local": {
     "amount": 45,
     "currency": "GBP",

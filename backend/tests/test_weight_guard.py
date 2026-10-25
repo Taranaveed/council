@@ -117,3 +117,32 @@ def test_landed_goods_multiple_warning_above_3x():
     assert landed.get("price_tier_unit")
     assert landed.get("price_card_raw") == "$9.00"
     assert "Price tier used" in blob
+
+
+def test_brief_tier_reason_and_profile_minimum_freight():
+    listing = _phone_case(
+        unit_usd=11.0,
+        moq=12,
+        package_weight_source="assumed",
+    )
+    landed = compute_landed_cost(
+        listing,
+        quantity=100,
+        local_currency="GBP",
+        location="London, UK",
+        country_code="uk",
+        origin_country="CN",
+    )
+    assert landed is not None
+    assert (
+        landed["price_tier_explanation"]
+        == "used $11 (tier for this quantity unverified; page shows $9.00)"
+    )
+    assert landed["minimum_freight_applied"] is True
+    assert landed["shipping_amount"] == "£45"
+    minimum = landed["minimum_freight"]
+    assert minimum["effective_date"]
+    assert minimum["source_url"]
+    blob = "\n".join(landed.get("assumptions") or [])
+    assert "estimated, not a carrier quote" in blob
+    assert "Price tier used: used $11" in blob

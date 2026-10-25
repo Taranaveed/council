@@ -121,6 +121,10 @@ def build_supplier_table(
                 "landed_mid": landed_mid_display(raw),
                 "landed_cost": landed,
                 "duty_fallback": bool(landed.get("duty_fallback")) if landed else False,
+                "tier_used": landed.get("price_tier_explanation") if landed else None,
+                "minimum_freight_applied": (
+                    bool(landed.get("minimum_freight_applied")) if landed else False
+                ),
                 "best_pick": bool(is_winner),
                 "vendor_status": raw.get("vendor_status"),
             }
@@ -224,7 +228,7 @@ def build_brief_export_text(
             a
             for a in assumptions
             if re.search(
-                r"^(Weight:|Freight|Freight derivation:|Duty:|FX:|Import VAT:)",
+                r"^(Weight:|Freight|Freight derivation:|Duty:|FX:|Import VAT:|Price tier used:|Minimum freight:)",
                 str(a),
             )
         ]
@@ -241,6 +245,8 @@ def build_brief_export_text(
                 f"MOQ {r.get('moq') or '—'} | {r.get('origin')} | "
                 f"risk {r.get('risk_score')}/10 | landed {r.get('landed_mid') or 'needs quote'}"
             )
+            if r.get("tier_used"):
+                lines.append(f"     Tier: {r.get('tier_used')}")
             if r.get("link"):
                 lines.append(f"     {r.get('link')}")
     if negotiation_message:

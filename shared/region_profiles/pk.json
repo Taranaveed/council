@@ -77,6 +77,13 @@
     "source_url": "assumption://cn-air-freight-band",
     "label": "CN→destination air freight band (assumption)"
   },
+  "minimum_freight_charge": {
+    "amount": 0,
+    "currency": "PKR",
+    "effective_date": "2026-01-01",
+    "source_url": "assumption://pk-minimum-inbound-freight-disabled",
+    "label": "Minimum inbound freight charge disabled to preserve frozen PK behavior"
+  },
   "shipping_flat_local": {
     "amount": 8500,
     "currency": "PKR",

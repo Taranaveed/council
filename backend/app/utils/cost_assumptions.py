@@ -146,6 +146,18 @@ def shared_cost_assumptions(
         "source_url": freight.get("source_url"),
         "label": freight.get("label"),
     }
+    minimum_freight = (
+        prof.get("minimum_freight_charge")
+        if isinstance(prof.get("minimum_freight_charge"), dict)
+        else {}
+    )
+    minimum_freight_meta = {
+        "amount": float(minimum_freight.get("amount") or 0.0),
+        "currency": str(minimum_freight.get("currency") or local).upper(),
+        "effective_date": minimum_freight.get("effective_date"),
+        "source_url": minimum_freight.get("source_url"),
+        "label": minimum_freight.get("label"),
+    }
 
     sales = prof.get("sales_tax") if isinstance(prof.get("sales_tax"), dict) else {}
     tax_full = float(sales.get("rate") or 0.0)
@@ -213,6 +225,11 @@ def shared_cost_assumptions(
             "freight_usd_per_kg_mid": 0.0,
             "freight_usd_per_kg_high": 0.0,
             "freight_meta": {**freight_meta, "low": 0.0, "mid": 0.0, "high": 0.0},
+            "minimum_freight_meta": {
+                **minimum_freight_meta,
+                "amount": 0.0,
+                "applies": False,
+            },
             "buyer_vat_registered": vat_reg,
             "label": (
                 f"domestic — duty 0%, domestic VAT {int(domestic_vat_rate * 100)}%"
@@ -285,6 +302,15 @@ def shared_cost_assumptions(
         + f" [as of {tax_meta.get('effective_date') or 'n/a'}]\n"
         f"- Air freight: ${fl:.0f}–${fh:.0f}/kg (mid ${fm:.0f}/kg)"
         f" [as of {freight_meta.get('effective_date') or 'n/a'}]\n"
+        + (
+            f"- Estimated minimum freight charge: {minimum_freight_meta['currency']} "
+            f"{minimum_freight_meta['amount']:g} (not a carrier quote)"
+            f" [as of {minimum_freight_meta.get('effective_date') or 'n/a'}; "
+            f"source {minimum_freight_meta.get('source_url') or 'n/a'}]\n"
+            if minimum_freight_meta["amount"] > 0
+            else ""
+        )
+        +
         "If you mention duty or freight, cite ONLY these rates. "
         "Do NOT invent alternate schemes like '20% CIF + 5% surcharge'.\n"
     )
@@ -308,6 +334,7 @@ def shared_cost_assumptions(
         "freight_usd_per_kg_mid": fm,
         "freight_usd_per_kg_high": fh,
         "freight_meta": freight_meta,
+        "minimum_freight_meta": minimum_freight_meta,
         "buyer_vat_registered": vat_reg,
         "label": (
             f"import origin={origin} duty {int(duty_mid * 100)}% mid "

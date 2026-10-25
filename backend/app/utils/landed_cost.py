@@ -487,18 +487,31 @@ def _shipping_band(
     weight_from_page: bool,
     local: str,
     freight_usd_per_kg: dict[str, float] | None = None,
+    minimum_freight: dict[str, Any] | None = None,
 ) -> tuple[dict[str, float], dict[str, Any]]:
     """
     Return ({low, mid, high} shipping in local currency, meta).
     Prefers weight × freight $/kg; falls back to flat when weight unknown.
     """
     rates = freight_usd_per_kg or FREIGHT_USD_PER_KG
+    minimum = minimum_freight if isinstance(minimum_freight, dict) else {}
+    minimum_amount = float(minimum.get("amount") or 0.0)
+    minimum_currency = str(minimum.get("currency") or local).upper()
+    if minimum_amount > 0 and minimum_currency != local:
+        converted = _to_local(minimum_amount, minimum_currency, local)
+        minimum_amount = float(converted or 0.0)
     meta: dict[str, Any] = {
         "weight_kg_unit": weight_kg_unit,
         "weight_from_page": weight_from_page,
         "freight_usd_per_kg_low": rates["low"],
         "freight_usd_per_kg_mid": rates["mid"],
         "freight_usd_per_kg_high": rates["high"],
+        "minimum_freight": {
+            **minimum,
+            "amount_local": minimum_amount,
+            "currency_local": local,
+            "applied": False,
+        },
     }
     if not foreign:
         return {"low": 0.0, "mid": 0.0, "high": 0.0}, {
@@ -514,7 +527,14 @@ def _shipping_band(
         for key in ("low", "mid", "high"):
             usd = total_kg * float(rates[key])
             local_amt = _to_local(usd, "USD", local) or usd
-            band[key] = float(local_amt)
+            band[key] = max(float(local_amt), minimum_amount)
+        minimum_applied = minimum_amount > 0 and any(
+            (total_kg * float(rates[key]))
+            > 0
+            and band[key] == minimum_amount
+            for key in ("low", "mid", "high")
+        )
+        meta["minimum_freight"]["applied"] = minimum_applied
         src = (
             "page weight"
             if weight_from_page
@@ -524,6 +544,12 @@ def _shipping_band(
         meta["freight_assumption"] = (
             f"{src}; freight ${float(rates['low']):.0f}–"
             f"${float(rates['high']):.0f}/kg air (mid ${float(rates['mid']):.0f}/kg)"
+            + (
+                f"; estimated minimum {_fmt(minimum_amount, local)} applied "
+                "(not a carrier quote)"
+                if minimum_applied
+                else ""
+            )
         )
         return band, meta
 
@@ -714,7 +740,14 @@ def compute_landed_cost(
         }
         if foreign
         else None,
+        minimum_freight=duty_bundle.get("minimum_freight_meta"),
     )
+    minimum_freight_info = (
+        ship_meta.get("minimum_freight")
+        if isinstance(ship_meta.get("minimum_freight"), dict)
+        else {}
+    )
+    minimum_freight_applied = bool(minimum_freight_info.get("applied"))
 
     # Local delivery / MOV from page facts when present
     delivery_fee = 0.0
@@ -890,6 +923,12 @@ def compute_landed_cost(
                 else ""
             )
             + ")"
+            + (
+                f"; estimated minimum freight {_fmt(float(minimum_freight_info.get('amount_local') or 0), local)} "
+                "applied (not a carrier quote)"
+                if minimum_freight_applied
+                else ""
+            )
         )
     elif foreign:
         freight_derivation = (
@@ -982,10 +1021,40 @@ def compute_landed_cost(
     # Always surface how raw weight became per-unit (smoke / brief audit)
     if weight_info.get("how"):
         assumptions.append(f"Weight parse: {weight_info.get('how')}")
-    assumptions.append(
-        f"Price tier used: {unit_disp} ({tier_label})"
-        + (f"; applies at qty ≥ {tier_moq}" if tier_moq else f"; order qty {qty}")
+    card_price_raw = str(listing.get("price") or "").strip()
+    card_amt = _parse_amount(card_price_raw)
+    used_differs_from_card = bool(
+        card_amt
+        and card_amt > 0
+        and abs(float(unit_amt) - float(card_amt)) / max(float(unit_amt), float(card_amt))
+        > 0.01
     )
+    if (
+        used_differs_from_card
+        and (
+            "unverified" in tier_label.lower()
+            or tier_label == "unit_usd"
+            or unconfirmed_tier_note
+        )
+    ):
+        tier_use_explanation = (
+            f"used {unit_disp} (tier for this quantity unverified; "
+            f"page shows {card_price_raw})"
+        )
+    else:
+        tier_use_explanation = (
+            f"used {unit_disp} ({tier_label}"
+            + (f"; applies at qty ≥ {tier_moq}" if tier_moq else f"; order qty {qty}")
+            + ")"
+        )
+    assumptions.append(f"Price tier used: {tier_use_explanation}")
+    if minimum_freight_applied:
+        assumptions.append(
+            f"Minimum freight: {_fmt(float(minimum_freight_info.get('amount_local') or 0), local)} "
+            "applied — estimated, not a carrier quote"
+            f" [as of {minimum_freight_info.get('effective_date') or 'n/a'}; "
+            f"source {minimum_freight_info.get('source_url') or 'n/a'}]"
+        )
     if budget is None:
         assumptions.append("No budget set — cannot compute over/under or max units that fit.")
     if delivery_fee:
@@ -1069,6 +1138,8 @@ def compute_landed_cost(
             "estimated, not a live FX quote" if fx_fallback_visible else None
         ),
         "freight_derivation": freight_derivation,
+        "minimum_freight_applied": minimum_freight_applied,
+        "minimum_freight": minimum_freight_info,
         "origin_country": origin,
         "is_import": foreign,
         "domestic_vat_rate": domestic_vat_rate,
@@ -1095,6 +1166,7 @@ def compute_landed_cost(
         "price_tier_min_qty": tier_moq,
         "price_tier_unit": unit_disp,
         "price_card_raw": str(listing.get("price") or ""),
+        "price_tier_explanation": tier_use_explanation,
         "freight_rate": float(duty_bundle["freight_usd_per_kg_mid"]) if foreign else 0.0,
         "freight_rate_low": float(duty_bundle["freight_usd_per_kg_low"]) if foreign else 0.0,
         "freight_rate_high": float(duty_bundle["freight_usd_per_kg_high"]) if foreign else 0.0,

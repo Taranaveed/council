@@ -406,7 +406,9 @@ def print_landed_row(i: int, listing: dict[str, Any], lc: dict[str, Any] | None)
     print(
         _safe(
             f"       freight={freight_disp!r} ({freight}) "
-            f"derivation={lc.get('freight_derivation')!r}"
+            f"derivation={lc.get('freight_derivation')!r} "
+            f"minimum_applied={lc.get('minimum_freight_applied')} "
+            f"minimum={lc.get('minimum_freight')!r}"
         )
     )
     print(
@@ -628,7 +630,7 @@ def case_b(client, headers: dict[str, str]) -> dict[str, Any] | None:
 
     # Print detailed per-row landed breakdown
     print("\n--- B raw landed-cost numbers (detailed) ---")
-    for i, x in enumerate(listings[:12]):
+    for i, x in enumerate(listings):
         if not isinstance(x, dict):
             continue
         lc = x.get("landed_cost") if isinstance(x.get("landed_cost"), dict) else None
