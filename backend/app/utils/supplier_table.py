@@ -65,6 +65,14 @@ def landed_mid_display(row: dict[str, Any]) -> str:
         label = f"{label} (estimated, not a tariff lookup)"
     if landed.get("fx_fallback"):
         label = f"{label} (estimated, not a live FX quote)"
+    if landed.get("freight_dominates_warning") or (
+        isinstance(landed.get("landed_goods_multiple"), (int, float))
+        and float(landed["landed_goods_multiple"]) > 3.0
+    ):
+        mult = landed.get("landed_goods_multiple")
+        label = f"{label} ⚠ landed/goods {mult}×" if mult else f"{label} ⚠ landed≫goods"
+    if landed.get("weight_ignored"):
+        label = f"{label} (page weight ignored)"
     return label
 
 

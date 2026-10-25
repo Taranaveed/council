@@ -374,6 +374,30 @@ def print_landed_row(i: int, listing: dict[str, Any], lc: dict[str, Any] | None)
     )
     print(
         _safe(
+            f"       tier_used={lc.get('price_tier_unit') or unit!r} "
+            f"tier_label={lc.get('price_tier_label')!r} "
+            f"tier_min_qty={lc.get('price_tier_min_qty')!r} "
+            f"card_raw={lc.get('price_card_raw') or listing.get('price')!r}"
+        )
+    )
+    print(
+        _safe(
+            f"       weight_raw={listing.get('package_weight_raw') or lc.get('package_weight_raw')!r} "
+            f"kg_as_parsed={listing.get('package_weight_kg_as_parsed') or lc.get('package_weight_kg_as_parsed')!r} "
+            f"basis={listing.get('package_weight_basis') or lc.get('package_weight_basis')!r} "
+            f"pcs/carton={listing.get('package_weight_pcs_per_carton') or lc.get('package_weight_pcs_per_carton')!r}"
+        )
+    )
+    print(
+        _safe(
+            f"       weight_unit_kg={lc.get('package_weight_kg')!r} "
+            f"from_page={lc.get('weight_from_page')} ignored={lc.get('weight_ignored')} "
+            f"reason={lc.get('weight_ignore_reason')!r}"
+        )
+    )
+    print(_safe(f"       weight_how={lc.get('weight_how')!r}"))
+    print(
+        _safe(
             f"       unit_price={unit!r} unit_local={unit_local!r} qty={qty} "
             f"goods_gbp={goods_disp!r} ({goods})"
         )
@@ -411,7 +435,8 @@ def print_landed_row(i: int, listing: dict[str, Any], lc: dict[str, Any] | None)
     print(
         _safe(
             f"       landed_total={lc.get('estimated_total')!r} ({landed_f}) "
-            f"landed/goods_multiple={multiple}"
+            f"landed/goods_multiple={lc.get('landed_goods_multiple') or multiple} "
+            f"warn_3x={lc.get('freight_dominates_warning')}"
         )
     )
 

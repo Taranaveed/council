@@ -15,23 +15,207 @@ from app.utils.fx import convert_amount
 from app.utils.money import parse_money
 from app.utils.tier_select import select_tier_for_quantity
 
+# (title regex, assumed kg/unit, max plausible kg/unit, min plausible)
 _CATEGORY_WEIGHT_KG = [
-    (re.compile(r"\b(earphone|earbud|handsfree|headset)\b", re.I), 0.05),
-    (re.compile(r"\b(adapter|charger|cable|otg)\b", re.I), 0.08),
-    (re.compile(r"\b(jewel|ring|earring|pendant|necklace)\b", re.I), 0.02),
-    (re.compile(r"\b(mist|spray|perfume|bottle)\b", re.I), 0.20),
+    (
+        re.compile(
+            r"\b(phone\s*case|iphone\s*case|mobile\s*(?:case|cover)|back\s*cover|alcantara\s*(?:case|cover)|silicone\s*case)\b",
+            re.I,
+        ),
+        0.05,
+        0.35,
+        0.005,
+    ),
+    (re.compile(r"\b(earphone|earbud|handsfree|headset)\b", re.I), 0.05, 0.25, 0.005),
+    (re.compile(r"\b(adapter|charger|cable|otg)\b", re.I), 0.08, 0.5, 0.01),
+    (re.compile(r"\b(jewel|ring|earring|pendant|necklace)\b", re.I), 0.02, 0.08, 0.001),
+    (re.compile(r"\b(mist|spray|perfume|bottle)\b", re.I), 0.20, 1.0, 0.02),
 ]
 
 # Assumed kg/unit when page has no weight (labelled as assumption).
 _ASSUMED_KG_PER_UNIT = 0.15
+_DEFAULT_MAX_KG = 2.0
+_DEFAULT_MIN_KG = 0.005
+_WEIGHT_OVER_ASSUMED_REJECT = 10.0  # ignore page weight if >10× category assumed
+
+
+def _category_weight_profile(listing: dict[str, Any]) -> tuple[float, float, float]:
+    """Return (assumed_kg, max_plausible_kg, min_plausible_kg)."""
+    blob = f"{listing.get('title') or ''} {listing.get('snippet') or ''}"
+    for cre, assumed, max_kg, min_kg in _CATEGORY_WEIGHT_KG:
+        if cre.search(blob):
+            return float(assumed), float(max_kg), float(min_kg)
+    return _ASSUMED_KG_PER_UNIT, _DEFAULT_MAX_KG, _DEFAULT_MIN_KG
 
 
 def _category_weight_kg(listing: dict[str, Any]) -> float:
-    blob = f"{listing.get('title') or ''} {listing.get('snippet') or ''}"
-    for cre, kg in _CATEGORY_WEIGHT_KG:
-        if cre.search(blob):
-            return kg
-    return _ASSUMED_KG_PER_UNIT
+    return _category_weight_profile(listing)[0]
+
+
+def resolve_unit_weight_kg(
+    listing: dict[str, Any],
+    *,
+    foreign: bool,
+) -> dict[str, Any]:
+    """
+    Resolve per-unit kg for freight.
+
+    Ignores page weights that look like carton/gross (or are implausible for the
+    category / >10× assumed default). Returns diagnostic fields for brief/smoke.
+    """
+    assumed, max_kg, min_kg = _category_weight_profile(listing)
+    raw_text = str(listing.get("package_weight_raw") or "") or None
+    basis = str(listing.get("package_weight_basis") or "").lower() or None
+    pcs = listing.get("package_weight_pcs_per_carton")
+    try:
+        pcs_n = int(pcs) if pcs is not None else None
+    except (TypeError, ValueError):
+        pcs_n = None
+    kg_as_parsed = listing.get("package_weight_kg_as_parsed")
+    try:
+        kg_as_parsed_f = float(kg_as_parsed) if kg_as_parsed is not None else None
+    except (TypeError, ValueError):
+        kg_as_parsed_f = None
+
+    weight_src = str(listing.get("package_weight_source") or "").lower()
+    try:
+        page_kg = (
+            float(listing["package_weight_kg"])
+            if listing.get("package_weight_kg") is not None
+            else None
+        )
+    except (TypeError, ValueError):
+        page_kg = None
+
+    # Carton/gross without usable per-unit conversion
+    if basis in ("carton", "gross") and (page_kg is None or page_kg <= 0):
+        note = str(listing.get("package_weight_note") or "") or (
+            "page weight ignored (looked like carton/gross weight)"
+        )
+        if not foreign:
+            return {
+                "kg": None,
+                "from_page": False,
+                "ignored": True,
+                "ignore_reason": note,
+                "assumed_kg": assumed,
+                "raw": raw_text,
+                "basis": basis,
+                "pcs_per_carton": pcs_n,
+                "kg_as_parsed": kg_as_parsed_f,
+                "how": f"raw={raw_text!r} basis={basis} → not used as per-unit; {note}",
+            }
+        return {
+            "kg": assumed,
+            "from_page": False,
+            "ignored": True,
+            "ignore_reason": note,
+            "assumed_kg": assumed,
+            "raw": raw_text,
+            "basis": basis,
+            "pcs_per_carton": pcs_n,
+            "kg_as_parsed": kg_as_parsed_f,
+            "how": (
+                f"raw={raw_text!r} basis={basis} kg_as_parsed={kg_as_parsed_f} "
+                f"pcs/carton={pcs_n} → ignored; using assumed {assumed} kg/unit "
+                f"({note})"
+            ),
+        }
+
+    if page_kg is not None and page_kg > 0 and weight_src in (
+        "page",
+        "page_facts",
+        "html",
+        "snippet",
+    ):
+        how_ok = (
+            f"raw={raw_text!r} basis={basis or 'unknown'} "
+            f"kg_as_parsed={kg_as_parsed_f if kg_as_parsed_f is not None else page_kg}"
+        )
+        if pcs_n and kg_as_parsed_f and basis in ("carton", "gross"):
+            how_ok += f" ÷ {pcs_n} pcs/carton → {page_kg} kg/unit"
+        else:
+            how_ok += f" → treated as {page_kg} kg/unit ({weight_src})"
+
+        over_assumed = page_kg > (assumed * _WEIGHT_OVER_ASSUMED_REJECT)
+        out_of_range = page_kg > max_kg or page_kg < min_kg
+        if over_assumed or out_of_range:
+            reason = "page weight ignored (looked like carton/gross weight)"
+            detail = (
+                f"{page_kg:g} kg/unit outside plausible "
+                f"[{min_kg:g}–{max_kg:g}] or >{_WEIGHT_OVER_ASSUMED_REJECT:g}× "
+                f"assumed {assumed:g}"
+            )
+            if not foreign:
+                return {
+                    "kg": None,
+                    "from_page": False,
+                    "ignored": True,
+                    "ignore_reason": reason,
+                    "assumed_kg": assumed,
+                    "raw": raw_text,
+                    "basis": basis,
+                    "pcs_per_carton": pcs_n,
+                    "kg_as_parsed": kg_as_parsed_f or page_kg,
+                    "how": f"{how_ok}; rejected ({detail})",
+                }
+            return {
+                "kg": assumed,
+                "from_page": False,
+                "ignored": True,
+                "ignore_reason": reason,
+                "assumed_kg": assumed,
+                "raw": raw_text,
+                "basis": basis,
+                "pcs_per_carton": pcs_n,
+                "kg_as_parsed": kg_as_parsed_f or page_kg,
+                "how": (
+                    f"{how_ok}; rejected ({detail}) → using assumed "
+                    f"{assumed} kg/unit ({reason})"
+                ),
+            }
+
+        return {
+            "kg": page_kg,
+            "from_page": weight_src in ("page", "page_facts", "html"),
+            "ignored": False,
+            "ignore_reason": None,
+            "assumed_kg": assumed,
+            "raw": raw_text,
+            "basis": basis or "unit",
+            "pcs_per_carton": pcs_n,
+            "kg_as_parsed": kg_as_parsed_f or page_kg,
+            "how": how_ok,
+        }
+
+    if foreign:
+        return {
+            "kg": assumed,
+            "from_page": False,
+            "ignored": False,
+            "ignore_reason": None,
+            "assumed_kg": assumed,
+            "raw": raw_text,
+            "basis": "assumed",
+            "pcs_per_carton": pcs_n,
+            "kg_as_parsed": kg_as_parsed_f,
+            "how": (
+                f"no usable page unit weight (raw={raw_text!r}) → "
+                f"assumed {assumed} kg/unit for category"
+            ),
+        }
+    return {
+        "kg": None,
+        "from_page": False,
+        "ignored": False,
+        "ignore_reason": None,
+        "assumed_kg": assumed,
+        "raw": raw_text,
+        "basis": "none",
+        "pcs_per_carton": pcs_n,
+        "kg_as_parsed": kg_as_parsed_f,
+        "how": f"domestic / no weight — raw={raw_text!r}",
+    }
 
 
 # Legacy static FX table — used only as convert_amount fallback when live FX fails.
@@ -503,18 +687,19 @@ def compute_landed_cost(
     domestic_vat_rate = float(duty_bundle.get("domestic_vat_rate") or 0.0)
     domestic_vat_in_mid = bool(duty_bundle.get("domestic_vat_in_mid"))
 
-    weight_kg = listing.get("package_weight_kg")
-    weight_src = str(listing.get("package_weight_source") or "").lower()
-    weight_from_page = False
-    try:
-        weight_f = float(weight_kg) if weight_kg is not None else None
-    except (TypeError, ValueError):
-        weight_f = None
-    if weight_f and weight_f > 0:
-        weight_from_page = weight_src in ("page", "page_facts", "html")
-    if weight_f is None and foreign:
-        weight_f = _category_weight_kg(listing)
-        weight_from_page = False
+    weight_info = resolve_unit_weight_kg(listing, foreign=foreign)
+    weight_f = weight_info.get("kg")
+    weight_from_page = bool(weight_info.get("from_page"))
+    weight_ignored = bool(weight_info.get("ignored"))
+    weight_src = (
+        "page"
+        if weight_from_page
+        else (
+            "ignored_page"
+            if weight_ignored
+            else str(listing.get("package_weight_source") or "assumed").lower()
+        )
+    )
 
     ship_band, ship_meta = _shipping_band(
         foreign=foreign,
@@ -571,8 +756,12 @@ def compute_landed_cost(
     assert total_low <= total_mid <= total_high
 
     freight_share = (ship_band["mid"] / total_mid) if total_mid > 0 else 0.0
+    landed_goods_multiple = (
+        (total_mid / line_local) if line_local and line_local > 0 else None
+    )
+    # Visible warning whenever landed is >3× goods (regardless of weight source)
     freight_dominates = bool(
-        unit_local > 0 and (total_mid / qty) > (unit_local * 3.0) and not weight_from_page
+        landed_goods_multiple is not None and landed_goods_multiple > 3.0
     )
 
     moq_raw = listing.get("moq")
@@ -665,15 +854,22 @@ def compute_landed_cost(
             f"Mid landed: {total_disp}. Range: {range_low_disp} – {range_high_disp}."
         )
 
-    weight_disp = (
-        f"{weight_f} kg/unit (page)"
-        if weight_f and weight_from_page
-        else (
-            f"{weight_f} kg/unit (assumed — not confirmed on page)"
-            if weight_f and weight_src in ("assumed", "category", "estimate")
-            else "Weight not confirmed — verify on seller page"
+    if weight_ignored:
+        weight_disp = (
+            f"{weight_f} kg/unit (assumed) — page weight ignored "
+            f"(looked like carton/gross weight); raw={weight_info.get('raw')!r}"
+            if weight_f
+            else (
+                "page weight ignored (looked like carton/gross weight); "
+                f"raw={weight_info.get('raw')!r}"
+            )
         )
-    )
+    elif weight_f and weight_from_page:
+        weight_disp = f"{weight_f} kg/unit (page)"
+    elif weight_f:
+        weight_disp = f"{weight_f} kg/unit (assumed — not confirmed on page)"
+    else:
+        weight_disp = "Weight not confirmed — verify on seller page"
     freight_disp = (
         f"${float(duty_bundle['freight_usd_per_kg_mid']):.0f}/kg mid "
         f"(${float(duty_bundle['freight_usd_per_kg_low']):.0f}–"
@@ -775,8 +971,21 @@ def compute_landed_cost(
         )
     if freight_dominates:
         assumptions.append(
-            "Warning: landed cost per unit is >3× listing unit price — assumed weight/freight dominates the result."
+            f"Warning: landed/goods ≈ {landed_goods_multiple:.1f}× (>3×) — "
+            "freight/weight or duty assumptions dominate; verify package weight and tiers."
         )
+    if weight_ignored:
+        assumptions.append(
+            str(weight_info.get("ignore_reason") or "")
+            + (f" — {weight_info.get('how')}" if weight_info.get("how") else "")
+        )
+    # Always surface how raw weight became per-unit (smoke / brief audit)
+    if weight_info.get("how"):
+        assumptions.append(f"Weight parse: {weight_info.get('how')}")
+    assumptions.append(
+        f"Price tier used: {unit_disp} ({tier_label})"
+        + (f"; applies at qty ≥ {tier_moq}" if tier_moq else f"; order qty {qty}")
+    )
     if budget is None:
         assumptions.append("No budget set — cannot compute over/under or max units that fit.")
     if delivery_fee:
@@ -870,8 +1079,22 @@ def compute_landed_cost(
             domestic_vat_rate and duty_bundle.get("buyer_vat_registered")
         ),
         "package_weight_kg": weight_f,
+        "package_weight_raw": weight_info.get("raw"),
+        "package_weight_basis": weight_info.get("basis"),
+        "package_weight_pcs_per_carton": weight_info.get("pcs_per_carton"),
+        "package_weight_kg_as_parsed": weight_info.get("kg_as_parsed"),
         "weight_from_page": weight_from_page,
-        "weight_assumption": assumptions[0] if assumptions else "",
+        "weight_ignored": weight_ignored,
+        "weight_ignore_reason": weight_info.get("ignore_reason"),
+        "weight_how": weight_info.get("how"),
+        "weight_assumption": weight_disp,
+        "landed_goods_multiple": (
+            round(landed_goods_multiple, 3) if landed_goods_multiple is not None else None
+        ),
+        "price_tier_label": tier_label,
+        "price_tier_min_qty": tier_moq,
+        "price_tier_unit": unit_disp,
+        "price_card_raw": str(listing.get("price") or ""),
         "freight_rate": float(duty_bundle["freight_usd_per_kg_mid"]) if foreign else 0.0,
         "freight_rate_low": float(duty_bundle["freight_usd_per_kg_low"]) if foreign else 0.0,
         "freight_rate_high": float(duty_bundle["freight_usd_per_kg_high"]) if foreign else 0.0,
