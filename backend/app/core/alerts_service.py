@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.db import briefs as briefs_db
@@ -13,6 +13,7 @@ from app.db.users import get_user_by_id
 from app.utils.notify_email import email_configured, send_alert_email
 
 DROP_PCT = float(os.getenv("ALERT_DROP_PCT") or "0.05")  # 5%
+ALERT_COOLDOWN_DAYS = float(os.getenv("ALERT_COOLDOWN_DAYS") or "3")
 FRONTEND = (os.getenv("FRONTEND_ORIGIN") or "http://127.0.0.1:5173").rstrip("/")
 
 
@@ -79,6 +80,29 @@ def evaluate_price_alert(
     return None
 
 
+def should_emit_alert(
+    *,
+    fingerprint: str,
+    last_fingerprint: str | None,
+    last_notified_at: str | None,
+    cooldown_days: float = ALERT_COOLDOWN_DAYS,
+    now: datetime | None = None,
+) -> tuple[bool, str]:
+    """Require a changed alert value and an elapsed cooldown."""
+    if last_fingerprint and fingerprint == last_fingerprint:
+        return False, "unchanged_since_last_alert"
+    if last_notified_at:
+        try:
+            previous = datetime.fromisoformat(str(last_notified_at).replace("Z", ""))
+            previous = previous.replace(tzinfo=None)
+            current = (now or datetime.now(timezone.utc)).replace(tzinfo=None)
+            if current - previous < timedelta(days=max(0.0, float(cooldown_days))):
+                return False, "cooldown"
+        except (TypeError, ValueError):
+            pass
+    return True, "changed"
+
+
 async def check_one_watch(
     item: dict[str, Any],
     *,
@@ -112,6 +136,12 @@ async def check_one_watch(
             f"The saved listing for {query} is unavailable. "
             "Council did not substitute another seller."
         )
+        fingerprint = "listing_unavailable"
+        allowed, suppress_reason = should_emit_alert(
+            fingerprint=fingerprint,
+            last_fingerprint=item.get("last_alert_fingerprint"),
+            last_notified_at=item.get("last_notified_at"),
+        )
         updated = watch_db.update_watch_check(
             user_id,
             watch_id,
@@ -121,8 +151,7 @@ async def check_one_watch(
             price_source="unavailable",
         )
         notif = None
-        if notify:
-            day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if notify and allowed:
             notif = notif_db.create_notification(
                 user_id=user_id,
                 kind="listing_unavailable",
@@ -130,8 +159,15 @@ async def check_one_watch(
                 body=body,
                 href=tracked_url,
                 meta={"watch_id": watch_id, "item_name": query},
-                dedupe_key=f"watch:{watch_id}:unavailable:{day}",
+                dedupe_key=f"watch:{watch_id}:unavailable:{datetime.now(timezone.utc).isoformat()}",
             )
+            if notif:
+                watch_db.mark_watch_alerted(
+                    user_id,
+                    watch_id,
+                    alerted_price=None,
+                    fingerprint=fingerprint,
+                )
         return {
             "watch": updated or item,
             "fired": bool(notif),
@@ -139,6 +175,8 @@ async def check_one_watch(
             "email": None,
             "best_price": None,
             "price_source": "unavailable",
+            "suppressed": not allowed,
+            "suppress_reason": suppress_reason if not allowed else None,
         }
 
     page_price = refreshed.get("price")
@@ -168,10 +206,20 @@ async def check_one_watch(
     )
 
     alert_text = None
-    fired = False
+    alert_candidate = bool(alert_payload)
+    fingerprint = (
+        f"price:{native_currency}:{best_n:.8g}" if best_n is not None else "price:none"
+    )
+    allowed, suppress_reason = should_emit_alert(
+        fingerprint=fingerprint,
+        last_fingerprint=item.get("last_alert_fingerprint"),
+        last_notified_at=item.get("last_notified_at"),
+    )
+    fired = bool(alert_candidate and allowed)
     if alert_payload:
         alert_text = f"{alert_payload['body']} [{price_source}; {native_currency}]"
-        fired = True
+        if not allowed:
+            alert_text += f" Alert suppressed ({suppress_reason})."
     elif best_price:
         alert_text = (
             f"Checked saved listing. {price_source}: {best_price} "
@@ -192,15 +240,17 @@ async def check_one_watch(
         baseline_price=seed_baseline if seed_baseline is not None else (
             best_n if fired and best_n is not None else None
         ),
-        mark_notified=bool(fired and notify),
+        mark_notified=False,
         price_source=price_source,
     )
 
     notif = None
     email_result = None
     if fired and notify and alert_payload:
-        day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        dedupe = f"watch:{watch_id}:{alert_payload['reason']}:{day}:{best_price}"
+        dedupe = (
+            f"watch:{watch_id}:{alert_payload['reason']}:"
+            f"{fingerprint}:{datetime.now(timezone.utc).isoformat()}"
+        )
         notif = notif_db.create_notification(
             user_id=user_id,
             kind=str(alert_payload["kind"]),
@@ -218,6 +268,13 @@ async def check_one_watch(
             },
             dedupe_key=dedupe,
         )
+        if notif:
+            watch_db.mark_watch_alerted(
+                user_id,
+                watch_id,
+                alerted_price=best_n,
+                fingerprint=fingerprint,
+            )
         if notif and email_configured():
             user = get_user_by_id(user_id) or {}
             to = str(user.get("email") or "")
@@ -237,6 +294,8 @@ async def check_one_watch(
         "notification": notif,
         "email": email_result,
         "best_price": best_price,
+        "suppressed": bool(alert_candidate and not allowed),
+        "suppress_reason": suppress_reason if alert_candidate and not allowed else None,
     }
 
 

@@ -2,9 +2,15 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
-from app.core.alerts_service import check_one_watch, evaluate_price_alert, parse_price_num
+from app.core.alerts_service import (
+    check_one_watch,
+    evaluate_price_alert,
+    parse_price_num,
+    should_emit_alert,
+)
 from app.db import briefs as briefs_db
 from app.db import notifications as notif_db
 from app.db import watchlist as watch_db
@@ -249,3 +255,63 @@ def test_missing_saved_listing_notifies_unavailable_without_substitution():
         and "did not substitute another seller" in n["body"]
         for n in inbox
     )
+
+
+def test_alert_requires_changed_price_and_three_day_cooldown():
+    now = datetime.now(timezone.utc)
+    same, reason = should_emit_alert(
+        fingerprint="price:USD:7.5",
+        last_fingerprint="price:USD:7.5",
+        last_notified_at=(now - timedelta(days=10)).isoformat(),
+        cooldown_days=3,
+        now=now,
+    )
+    assert same is False
+    assert reason == "unchanged_since_last_alert"
+
+    cooling, reason = should_emit_alert(
+        fingerprint="price:USD:7",
+        last_fingerprint="price:USD:7.5",
+        last_notified_at=(now - timedelta(days=1)).isoformat(),
+        cooldown_days=3,
+        now=now,
+    )
+    assert cooling is False
+    assert reason == "cooldown"
+
+    changed, reason = should_emit_alert(
+        fingerprint="price:USD:7",
+        last_fingerprint="price:USD:7.5",
+        last_notified_at=(now - timedelta(days=4)).isoformat(),
+        cooldown_days=3,
+        now=now,
+    )
+    assert changed is True
+    assert reason == "changed"
+
+
+def test_same_price_does_not_alert_twice():
+    import asyncio
+
+    user = create_user(f"cooldown_{uuid.uuid4().hex[:10]}@example.com", "hash")
+    uid = int(user["id"])
+    watch = _tracked_watch(uid)
+    page = {
+        "available": True,
+        "url": watch["tracked_url"],
+        "price": "$7.50",
+        "currency": "USD",
+        "price_source": "page",
+        "page_price_verified": True,
+    }
+    with patch(
+        "app.core.market_client.fetch_tracked_listing_price",
+        new=AsyncMock(return_value=page),
+    ):
+        first = asyncio.run(check_one_watch(watch, notify=True, force=True))
+        refreshed = watch_db.get_watch(uid, int(watch["id"]))
+        second = asyncio.run(check_one_watch(refreshed, notify=True, force=True))
+    assert first["notification"] is not None
+    assert second["notification"] is None
+    assert second["suppressed"] is True
+    assert second["suppress_reason"] == "unchanged_since_last_alert"

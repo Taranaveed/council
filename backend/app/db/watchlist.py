@@ -50,6 +50,8 @@ def init_watchlist_db() -> None:
             ("saved_price", "TEXT"),
             ("saved_price_source", "TEXT"),
             ("last_price_source", "TEXT"),
+            ("last_alerted_price", "REAL"),
+            ("last_alert_fingerprint", "TEXT"),
         ):
             if name not in cols:
                 conn.execute(
@@ -223,6 +225,30 @@ def get_watch(user_id: int, watch_id: int) -> Optional[dict[str, Any]]:
             (watch_id, user_id),
         ).fetchone()
         return _row(row)
+
+
+def mark_watch_alerted(
+    user_id: int,
+    watch_id: int,
+    *,
+    alerted_price: float | None,
+    fingerprint: str,
+) -> bool:
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
+    with _connect() as conn:
+        cur = conn.execute(
+            """
+            UPDATE watchlist_items
+            SET last_notified_at = ?, last_alerted_price = ?,
+                last_alert_fingerprint = ?
+            WHERE id = ? AND user_id = ?
+            """,
+            (now, alerted_price, fingerprint[:200], watch_id, user_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
 
 
 def list_due_watches(*, stale_hours: float = 12.0, limit: int = 20) -> list[dict[str, Any]]:
