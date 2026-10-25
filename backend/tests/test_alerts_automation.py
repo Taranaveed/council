@@ -361,3 +361,50 @@ def test_watch_cache_shared_across_users_for_same_query_and_url():
     fetch.assert_awaited_once()
     assert first["cache_hit"] is False
     assert second["cache_hit"] is True
+
+
+def test_scheduler_lock_allows_only_one_owner():
+    lock_name = f"alerts-test-{uuid.uuid4().hex}"
+    assert watch_db.acquire_automation_lock(
+        lock_name, "owner-a", lease_seconds=60
+    ) is True
+    assert watch_db.acquire_automation_lock(
+        lock_name, "owner-b", lease_seconds=60
+    ) is False
+    # Owner can renew; release allows the next owner.
+    assert watch_db.acquire_automation_lock(
+        lock_name, "owner-a", lease_seconds=60
+    ) is True
+    watch_db.release_automation_lock(lock_name, "owner-a")
+    assert watch_db.acquire_automation_lock(
+        lock_name, "owner-b", lease_seconds=60
+    ) is True
+    watch_db.release_automation_lock(lock_name, "owner-b")
+
+
+def test_external_cron_endpoint_is_secret_protected(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    monkeypatch.setenv("ALERTS_SCHEDULER", "0")
+    monkeypatch.setenv("ALERTS_CRON_SECRET", "test-secret")
+    with TestClient(app) as client:
+        assert client.post("/api/workspace/alerts/cron").status_code == 401
+        assert (
+            client.post(
+                "/api/workspace/alerts/cron",
+                headers={"X-Cron-Secret": "wrong"},
+            ).status_code
+            == 401
+        )
+        with patch(
+            "app.api.watchlist.run_alerts_tick_locked",
+            new=AsyncMock(return_value={"skipped": False, "watches_checked": 0}),
+        ) as tick:
+            response = client.post(
+                "/api/workspace/alerts/cron",
+                headers={"X-Cron-Secret": "test-secret"},
+            )
+        assert response.status_code == 200
+        assert response.json()["skipped"] is False
+        tick.assert_awaited_once()

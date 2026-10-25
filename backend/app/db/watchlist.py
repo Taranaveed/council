@@ -55,6 +55,16 @@ def init_watchlist_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS automation_locks (
+                lock_name TEXT PRIMARY KEY,
+                owner_id TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
         cols = {r[1] for r in conn.execute("PRAGMA table_info(watchlist_items)").fetchall()}
         if "last_notified_at" not in cols:
             conn.execute("ALTER TABLE watchlist_items ADD COLUMN last_notified_at TEXT")
@@ -353,5 +363,57 @@ def put_cached_watch_result(cache_key: str, payload: dict[str, Any]) -> None:
                 checked_at = excluded.checked_at
             """,
             (cache_key[:1000], json.dumps(payload, default=str), now),
+        )
+        conn.commit()
+
+
+def acquire_automation_lock(
+    lock_name: str,
+    owner_id: str,
+    *,
+    lease_seconds: int = 600,
+) -> bool:
+    """Acquire/renew a SQLite lease. One shared DB elects one scheduler."""
+    from datetime import datetime, timedelta, timezone
+
+    now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = now_dt.isoformat(timespec="seconds")
+    expires = (now_dt + timedelta(seconds=max(30, int(lease_seconds)))).isoformat(
+        timespec="seconds"
+    )
+    with _connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT owner_id, expires_at FROM automation_locks WHERE lock_name = ?",
+            (lock_name,),
+        ).fetchone()
+        can_take = (
+            row is None
+            or str(row["owner_id"]) == owner_id
+            or str(row["expires_at"]) <= now
+        )
+        if not can_take:
+            conn.rollback()
+            return False
+        conn.execute(
+            """
+            INSERT INTO automation_locks (lock_name, owner_id, expires_at, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(lock_name) DO UPDATE SET
+                owner_id = excluded.owner_id,
+                expires_at = excluded.expires_at,
+                updated_at = excluded.updated_at
+            """,
+            (lock_name, owner_id, expires, now),
+        )
+        conn.commit()
+        return True
+
+
+def release_automation_lock(lock_name: str, owner_id: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM automation_locks WHERE lock_name = ? AND owner_id = ?",
+            (lock_name, owner_id),
         )
         conn.commit()

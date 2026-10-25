@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import re
 import hashlib
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -408,6 +409,33 @@ async def run_alerts_tick(
     }
 
 
+async def run_alerts_tick_locked(
+    *,
+    owner_id: str,
+    lease_seconds: int = 600,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Run one tick only when this process/request owns the DB lease."""
+    lock_name = "alerts_scheduler"
+    acquired = watch_db.acquire_automation_lock(
+        lock_name,
+        owner_id,
+        lease_seconds=lease_seconds,
+    )
+    if not acquired:
+        return {
+            "skipped": True,
+            "reason": "scheduler_lock_held",
+            "watches_checked": 0,
+            "alerts_fired": 0,
+        }
+    try:
+        result = await run_alerts_tick(**kwargs)
+        return {"skipped": False, **result}
+    finally:
+        watch_db.release_automation_lock(lock_name, owner_id)
+
+
 def _is_stale(item: dict[str, Any], stale_hours: float) -> bool:
     raw = item.get("last_checked_at")
     if not raw:
@@ -435,11 +463,15 @@ async def alerts_background_loop() -> None:
         return
     interval = float(os.getenv("ALERTS_POLL_SECONDS") or "900")  # 15 min
     interval = max(60.0, interval)
+    owner_id = f"loop-{uuid.uuid4().hex}"
     # Small delay so startup DB init finishes
     await asyncio.sleep(8.0)
     while True:
         try:
-            await run_alerts_tick()
+            await run_alerts_tick_locked(
+                owner_id=owner_id,
+                lease_seconds=max(120, int(interval * 0.9)),
+            )
         except Exception as exc:
             print(f"[alerts] tick error: {exc}")
         await asyncio.sleep(interval)

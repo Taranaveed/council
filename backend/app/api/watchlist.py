@@ -1,12 +1,19 @@
 """Phase 3 — watchlist + reorder reminders + alerts inbox + credits."""
 from __future__ import annotations
 
+import os
+import secrets
+import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from app.core.alerts_service import check_one_watch, run_alerts_tick
+from app.core.alerts_service import (
+    check_one_watch,
+    run_alerts_tick,
+    run_alerts_tick_locked,
+)
 from app.core.auth import get_current_user
 from app.db import briefs as briefs_db
 from app.db import credits as credits_db
@@ -158,3 +165,23 @@ async def run_my_alerts(
         "notifications": notif_db.list_notifications(uid, limit=12),
         "reminders": briefs_db.list_due_reminders(uid),
     }
+
+
+@router.post("/alerts/cron")
+async def run_external_cron(
+    x_cron_secret: Optional[str] = Header(default=None, alias="X-Cron-Secret"),
+):
+    """Protected external wake/cron entry point for sleeping hosts."""
+    expected = (os.getenv("ALERTS_CRON_SECRET") or "").strip()
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="External alerts cron is disabled until ALERTS_CRON_SECRET is set.",
+        )
+    supplied = (x_cron_secret or "").strip()
+    if not supplied or not secrets.compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="Invalid cron secret.")
+    return await run_alerts_tick_locked(
+        owner_id=f"cron-{uuid.uuid4().hex}",
+        lease_seconds=600,
+    )
