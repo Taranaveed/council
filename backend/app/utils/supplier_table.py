@@ -49,6 +49,9 @@ def listing_risk_1_to_10(row: dict[str, Any], *, is_bulk: bool = False) -> dict[
     return {"score": score, "reasons": reasons[:4]}
 
 
+LIMITED_DATA_LABEL = "limited data, low confidence"
+
+
 def landed_mid_display(row: dict[str, Any]) -> str:
     """
     Single source of truth for table / brief: listing.landed_cost from compute_landed_cost.
@@ -65,6 +68,8 @@ def landed_mid_display(row: dict[str, Any]) -> str:
         label = f"{label} (estimated, not a tariff lookup)"
     if landed.get("fx_fallback"):
         label = f"{label} (estimated, not a live FX quote)"
+    if landed.get("limited_data") or landed.get("limited_data_label"):
+        label = f"{label} ({landed.get('limited_data_label') or LIMITED_DATA_LABEL})"
     if landed.get("freight_dominates_warning") or (
         isinstance(landed.get("landed_goods_multiple"), (int, float))
         and float(landed["landed_goods_multiple"]) > 3.0
@@ -74,6 +79,51 @@ def landed_mid_display(row: dict[str, Any]) -> str:
     if landed.get("weight_ignored"):
         label = f"{label} (page weight ignored)"
     return label
+
+
+def attach_limited_data_landed(
+    listings: list[dict[str, Any]],
+    *,
+    quantity: int | None,
+    local_currency: str | None = None,
+    location: str | None = None,
+    country_code: str | None = None,
+    buyer_vat_registered: bool | None = None,
+    commodity_code: str | None = None,
+    budget: float | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Compute per-listing landed cost for priced rows under limited-data verdicts
+    (NO_MATCH / Skip with <2 usable prices). Does not change the verdict.
+    """
+    from app.utils.landed_cost import compute_landed_cost
+
+    if not quantity or quantity <= 0:
+        return listings
+    out: list[dict[str, Any]] = []
+    for row in listings or []:
+        if not isinstance(row, dict):
+            continue
+        item = dict(row)
+        existing = item.get("landed_cost") if isinstance(item.get("landed_cost"), dict) else None
+        landed = existing or compute_landed_cost(
+            item,
+            quantity=quantity,
+            local_currency=local_currency,
+            budget=budget,
+            buyer_vat_registered=buyer_vat_registered,
+            commodity_code=commodity_code,
+            location=location,
+            country_code=country_code,
+        )
+        if landed:
+            marked = dict(landed)
+            marked["limited_data"] = True
+            marked["limited_data_label"] = LIMITED_DATA_LABEL
+            item["landed_cost"] = marked
+            item["limited_data"] = True
+        out.append(item)
+    return out
 
 
 def build_supplier_table(

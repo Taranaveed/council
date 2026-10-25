@@ -20,6 +20,8 @@ market-service/.env
 .cursor/
 *.log
 scripts/_smoke_rerun_logs/
+benchmark/reports/*.json
+!benchmark/reports/.gitkeep
 
 # OS
 .DS_Store

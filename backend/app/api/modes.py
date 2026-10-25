@@ -864,6 +864,36 @@ async def deal_finder(
             }
         # Prefer priced kept rows; else show reviewable product pages (no Best-pick badge).
         display = clear_best_pick(kept if kept else reviewable[:12])
+        # Limited data: still show landed mid for every kept priced row (low confidence).
+        if kept and qty:
+            from app.utils.supplier_table import attach_limited_data_landed
+
+            priced_links = {
+                str(x.get("link") or "")
+                for x in kept
+                if isinstance(x, dict) and str(x.get("link") or "")
+            }
+            priced_rows = [
+                x
+                for x in display
+                if isinstance(x, dict) and str(x.get("link") or "") in priced_links
+            ]
+            other_rows = [
+                x
+                for x in display
+                if isinstance(x, dict) and str(x.get("link") or "") not in priced_links
+            ]
+            priced_rows = attach_limited_data_landed(
+                priced_rows,
+                quantity=qty,
+                local_currency=local_currency or None,
+                location=req.location,
+                country_code=str(region_profile.get("country_code") or "") or None,
+                buyer_vat_registered=getattr(req, "buyer_vat_registered", None),
+                commodity_code=getattr(req, "commodity_code", None),
+                budget=parse_money(req.max_budget) if req.max_budget else None,
+            )
+            display = [*priced_rows, *other_rows]
         for row in display:
             if row.get("wired_conflict") or any(
                 isinstance(m, dict) and m.get("id") == "wired"
@@ -871,6 +901,11 @@ async def deal_finder(
             ):
                 row["rank_reason"] = (
                     "Does not match wired / 3.5mm — shown only as a rejected result."
+                )
+            elif row.get("limited_data") and isinstance(row.get("landed_cost"), dict):
+                row["rank_reason"] = (
+                    "Limited data, low confidence — landed estimate from the one "
+                    "usable priced listing; confirm before ordering."
                 )
             elif not kept and row.get("needs_price_confirm"):
                 row["rank_reason"] = "Confirm unit price and MOQ on the seller page."
@@ -884,6 +919,13 @@ async def deal_finder(
                 else "No good matches — refine your query (product type, connector, material)."
             ),
         ]
+        if kept and any(
+            isinstance(x, dict) and isinstance(x.get("landed_cost"), dict) for x in display
+        ):
+            warn_bits.append(
+                "Limited data, low confidence: landed costs shown for priced rows only; "
+                "verdict remains NO_MATCH until at least 2 usable priced listings."
+            )
         q_low = (product_query or req.item_name or "").lower()
         checklist = [
             "Refine your query",

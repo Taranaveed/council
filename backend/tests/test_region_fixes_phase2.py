@@ -254,6 +254,46 @@ def test_needs_quote_when_no_landed():
     assert table[0]["landed_mid"] == "needs quote"
 
 
+def test_limited_data_landed_shown_under_no_match():
+    """One priced kept row still gets a landed mid, labeled limited data; verdict stays NO_MATCH."""
+    from app.utils.relevance import no_good_matches_verdict
+    from app.utils.supplier_table import attach_limited_data_landed
+
+    listing = _uk_listing(
+        "CN",
+        link="https://www.alibaba.com/product-detail/limited-1.html",
+        price="$9.00",
+    )
+    attached = attach_limited_data_landed(
+        [listing],
+        quantity=100,
+        local_currency="GBP",
+        location="London, United Kingdom",
+        country_code="uk",
+    )
+    assert len(attached) == 1
+    landed = attached[0]["landed_cost"]
+    assert landed is not None
+    assert landed.get("limited_data") is True
+    assert "limited data" in str(landed.get("limited_data_label") or "").lower()
+    mid = landed_mid_display(attached[0])
+    assert mid != "needs quote"
+    assert "limited data" in mid.lower()
+    assert "low confidence" in mid.lower()
+
+    verdict = no_good_matches_verdict("phone case", dropped=5)
+    assert verdict["verdict"] == "NO_MATCH"
+    table = build_supplier_table(
+        attached,
+        verdict=verdict,
+        quantity=100,
+        is_bulk=True,
+    )
+    assert table[0]["best_pick"] is False
+    assert table[0]["landed_mid"] == mid
+    assert table[0]["landed_cost"]["limited_data"] is True
+
+
 def test_uk_prompts_contain_no_pakistan_karachi_cra():
     uk_ctx = {
         "trade_zone": "UK",
