@@ -1,0 +1,14 @@
+{
+  "status_code": 422,
+  "body": {
+    "detail": {
+      "error": "region_not_supported",
+      "message": "Region not supported: 'us'. Supported regions: pk, uk.",
+      "profile_id": "us",
+      "supported": [
+        "pk",
+        "uk"
+      ]
+    }
+  }
+}

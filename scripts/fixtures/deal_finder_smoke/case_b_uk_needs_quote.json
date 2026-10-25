@@ -1,0 +1,54 @@
+{
+  "market_listings": [
+    {
+      "title": "Unpriced Phone Case Listing",
+      "vendor": "Alibaba",
+      "link": "https://www.alibaba.com/product-detail/fixture-unpriced.html",
+      "price": "See listing",
+      "currency": null,
+      "price_source": "snippet",
+      "supplier_origin": "CN",
+      "best_pick": false
+    }
+  ],
+  "supplier_table": [
+    {
+      "rank": 1,
+      "vendor": "Alibaba",
+      "title": "Unpriced Phone Case Listing",
+      "link": "https://www.alibaba.com/product-detail/fixture-unpriced.html",
+      "unit_price": "See listing",
+      "currency": "",
+      "moq": null,
+      "origin": "cn",
+      "risk_score": 3,
+      "risk_reasons": [
+        "Baseline listing risk"
+      ],
+      "landed_mid": "needs quote",
+      "landed_cost": null,
+      "duty_fallback": false,
+      "tier_used": null,
+      "minimum_freight_applied": false,
+      "best_pick": false,
+      "vendor_status": null
+    }
+  ],
+  "export_text": "Landed mid needs quote\nCurrency GBP / £",
+  "verdict": {
+    "verdict": "NO_MATCH",
+    "winner": {
+      "title": "Unpriced Phone Case Listing",
+      "link": "https://www.alibaba.com/product-detail/fixture-unpriced.html",
+      "vendor": "Alibaba"
+    },
+    "rationale": "No usable priced listing.",
+    "prose": "Insufficient relevant product pages."
+  },
+  "transcript": {
+    "thrift_advocate": "Insufficient relevant product pages.",
+    "risk_analyst": "Off-category results are not usable.",
+    "contextual_persona": "Ask the buyer to clarify."
+  },
+  "currency": "GBP"
+}

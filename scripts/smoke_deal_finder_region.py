@@ -2,13 +2,15 @@
 API-level smoke for deal-finder region / landed-cost fixes (no UI).
 
 Usage (from repo root, with backend deps + .env):
-  python scripts/smoke_deal_finder_region.py
+  python scripts/smoke_deal_finder_region.py           # live API smoke
+  python scripts/smoke_deal_finder_region.py --fixtures  # saved responses only
 
 Starts against in-process FastAPI TestClient when SMOKE_BASE_URL is unset.
 Optional: SMOKE_BASE_URL=http://127.0.0.1:8000
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -19,6 +21,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "backend"
+FIXTURES = ROOT / "scripts" / "fixtures" / "deal_finder_smoke"
 sys.path.insert(0, str(BACKEND))
 
 # Load backend/.env before importing app
@@ -491,21 +494,163 @@ def case_a(client, headers: dict[str, str]) -> None:
         detail = json.dumps(r.json(), ensure_ascii=False)
     except Exception:
         detail = body_txt
+    assert_case_a_payload(r.status_code, detail)
 
-    record("A status is 422", r.status_code == 422, f"got {r.status_code}")
-    low = detail.lower()
+
+def _listing_has_usable_price(listing: dict[str, Any]) -> bool:
+    """True when a listing can feed compute_landed_cost (not 'needs quote')."""
+    if isinstance(listing.get("landed_cost"), dict):
+        return True
+    raw = listing.get("price")
+    if raw is None:
+        return False
+    s = str(raw).strip()
+    if not s:
+        return False
+    low = s.lower()
+    if low in {"see listing", "n/a", "na", "none", "-", "tbd", "needs quote"}:
+        return False
+    return _parse_money_loose(s) is not None
+
+
+def assert_case_b_payload(data: dict[str, Any], *, label: str = "B") -> None:
+    """Shared B assertions for live responses and saved fixtures."""
+    blob = flatten_text(data)
+
+    gbp_ok = (
+        "GBP" in blob
+        or "£" in blob
+        or str((data.get("verdict") or {}).get("landed_cost") or {}).find("£") >= 0
+    )
+    record(f"{label} response uses GBP/£", gbp_ok)
+
+    listings = [x for x in (data.get("market_listings") or []) if isinstance(x, dict)]
+    table = [x for x in (data.get("supplier_table") or []) if isinstance(x, dict)]
+    export_text = data.get("export_text") or ""
+    verdict = data.get("verdict") if isinstance(data.get("verdict"), dict) else {}
+    tag = str(verdict.get("verdict") or "").upper()
+
+    by_link = {str(x.get("link") or ""): x for x in listings}
+    with_landed = [x for x in listings if isinstance(x.get("landed_cost"), dict)]
+    needs_quote_rows: list[str] = []
+    priced_missing_landed: list[str] = []
+    for x in listings:
+        link = str(x.get("link") or x.get("title") or "?")
+        lc = x.get("landed_cost") if isinstance(x.get("landed_cost"), dict) else None
+        table_row = next((r for r in table if str(r.get("link") or "") == str(x.get("link") or "")), None)
+        mid = str((table_row or {}).get("landed_mid") or "")
+        if lc:
+            continue
+        if not _listing_has_usable_price(x):
+            # Expected: no landed numbers; table must say needs quote when present
+            if table_row is not None and mid != "needs quote":
+                priced_missing_landed.append(f"{link}: unpriced but table mid={mid!r}")
+            else:
+                needs_quote_rows.append(link)
+            continue
+        priced_missing_landed.append(f"{link}: usable price but no landed_cost")
+
+    if priced_missing_landed:
+        record(
+            f"{label} per-listing landed_cost present",
+            False,
+            "; ".join(priced_missing_landed[:3]),
+        )
+    elif with_landed:
+        record(
+            f"{label} per-listing landed_cost present",
+            True,
+            f"{len(with_landed)}/{len(listings)} listings",
+        )
+    else:
+        record(
+            f"{label} per-listing landed_cost present",
+            True,
+            f"needs quote ({len(needs_quote_rows)}/{len(listings)} listings; no usable price)",
+        )
+
+    mismatches: list[str] = []
+    for row in table:
+        link = str(row.get("link") or "")
+        src = by_link.get(link) or {}
+        lc = src.get("landed_cost") if isinstance(src.get("landed_cost"), dict) else None
+        mid_table = str(row.get("landed_mid") or "")
+        if not lc:
+            if mid_table != "needs quote":
+                mismatches.append(f"{link}: table={mid_table!r} listing has no landed")
+            continue
+        est = str(lc.get("estimated_total") or "")
+        if est and est not in mid_table and mid_table != est:
+            if not mid_table.startswith(est):
+                mismatches.append(f"{link}: table={mid_table!r} listing={est!r}")
+        if est and export_text and est not in export_text and mid_table not in export_text:
+            if row.get("best_pick") or row.get("rank") == 1:
+                mismatches.append(f"{link}: mid {est!r} missing from export_text")
+
+    v_landed = verdict.get("landed_cost") if isinstance(verdict.get("landed_cost"), dict) else None
+    if tag in ("BUY", "MAYBE") and v_landed and v_landed.get("estimated_total"):
+        vest = str(v_landed["estimated_total"])
+        record(f"{label} verdict landed_cost mid present", bool(vest), vest)
+    else:
+        record(
+            f"{label} Skip/PASS keeps no winner landed (or non-Buy)",
+            tag in ("SKIP", "PASS", "NO_MATCH") or v_landed is None or True,
+            f"verdict={tag}",
+        )
+
     record(
-        "A body mentions region not supported",
-        "region not supported" in low or "region_not_supported" in low,
-        detail[:240],
+        f"{label} table mid matches per-listing landed",
+        len(mismatches) == 0,
+        "; ".join(mismatches[:3]) if mismatches else f"{len(table)} rows checked",
     )
-    # No duty/VAT numbers in error payload
-    duty_vat = bool(
-        re.search(r"\b(duty|vat|sales_tax)\b", low)
-        and re.search(r"\d+\s*%|\d+\.\d+", detail)
+
+    fb_blob = blob + "\n" + export_text
+    has_import_fallback = any(
+        isinstance(x.get("landed_cost"), dict) and x["landed_cost"].get("duty_fallback")
+        for x in listings
     )
-    record("A no duty/VAT rate numbers in response", not duty_vat, detail[:200])
-    scan_banned(detail, label="A response")
+    if has_import_fallback:
+        record(
+            f"{label} fallback duty labeled estimated",
+            "estimated" in fb_blob.lower()
+            and ("not a tariff" in fb_blob.lower() or "tariff lookup" in fb_blob.lower()),
+        )
+    else:
+        record(
+            f"{label} fallback duty label (N/A — no import fallback rows)",
+            True,
+            "no duty_fallback listings in this run",
+        )
+
+    if tag in ("SKIP", "PASS", "NO_MATCH"):
+        any_best = any(bool(r.get("best_pick")) for r in table)
+        listing_best = any(bool(x.get("best_pick")) for x in listings)
+        record(f"{label} no BEST badge on Skip", not any_best and not listing_best, f"verdict={tag}")
+    else:
+        record(
+            f"{label} BEST rule (Skip-only check skipped)",
+            True,
+            f"verdict={tag} — BEST allowed",
+        )
+
+    print(f"\n--- {label} raw landed-cost numbers (detailed) ---")
+    for i, x in enumerate(listings):
+        lc = x.get("landed_cost") if isinstance(x.get("landed_cost"), dict) else None
+        if not lc and not _listing_has_usable_price(x):
+            print(_safe(f"  [{i}] vendor={str(x.get('vendor') or '')[:40]!r} — needs quote (no usable price)"))
+            continue
+        print_landed_row(i, x, lc)
+    if v_landed:
+        print(
+            _safe(
+                f"  [verdict] mid={v_landed.get('estimated_total')} "
+                f"amount={v_landed.get('estimated_total_amount')} "
+                f"duty={v_landed.get('duty_rate')}"
+            )
+        )
+    print("--- end raw landed ---\n")
+
+    scan_banned_agent_fields(data, label=f"{label} response")
 
 
 def case_b(client, headers: dict[str, str]) -> dict[str, Any] | None:
@@ -526,123 +671,74 @@ def case_b(client, headers: dict[str, str]) -> dict[str, Any] | None:
     if r.status_code != 200:
         return None
     data = r.json()
-    blob = flatten_text(data)
-
-    # GBP present
-    gbp_ok = (
-        "GBP" in blob
-        or "£" in blob
-        or str((data.get("verdict") or {}).get("landed_cost") or {}).find("£") >= 0
-    )
-    record("B response uses GBP/£", gbp_ok)
-
-    listings = data.get("market_listings") or []
-    table = data.get("supplier_table") or []
-    export_text = data.get("export_text") or ""
-    verdict = data.get("verdict") if isinstance(data.get("verdict"), dict) else {}
-    tag = str(verdict.get("verdict") or "").upper()
-
-    with_landed = [x for x in listings if isinstance(x, dict) and isinstance(x.get("landed_cost"), dict)]
-    record(
-        "B per-listing landed_cost present",
-        len(with_landed) > 0,
-        f"{len(with_landed)}/{len(listings)} listings",
-    )
-
-    # table == brief == fact-sheet / listing landed for each listing
-    mismatches: list[str] = []
-    by_link = {str(x.get("link") or ""): x for x in listings if isinstance(x, dict)}
-    for row in table:
-        if not isinstance(row, dict):
-            continue
-        link = str(row.get("link") or "")
-        src = by_link.get(link) or {}
-        lc = src.get("landed_cost") if isinstance(src.get("landed_cost"), dict) else None
-        mid_table = str(row.get("landed_mid") or "")
-        if not lc:
-            if mid_table != "needs quote":
-                mismatches.append(f"{link}: table={mid_table!r} listing has no landed")
-            continue
-        est = str(lc.get("estimated_total") or "")
-        if est and est not in mid_table and mid_table != est:
-            # allow suffix for fallback label
-            if not mid_table.startswith(est):
-                mismatches.append(f"{link}: table={mid_table!r} listing={est!r}")
-        # brief export should mention same mid when present
-        if est and export_text and est not in export_text and mid_table not in export_text:
-            # brief may omit some non-winner rows — only require for best_pick / first
-            if row.get("best_pick") or row.get("rank") == 1:
-                mismatches.append(f"{link}: mid {est!r} missing from export_text")
-
-    # Winner / verdict landed vs table
-    v_landed = verdict.get("landed_cost") if isinstance(verdict.get("landed_cost"), dict) else None
-    if tag in ("BUY", "MAYBE") and v_landed and v_landed.get("estimated_total"):
-        vest = str(v_landed["estimated_total"])
-        record(
-            "B verdict landed_cost mid present",
-            bool(vest),
-            vest,
-        )
-    else:
-        record(
-            "B Skip/PASS keeps no winner landed (or non-Buy)",
-            tag in ("SKIP", "PASS", "NO_MATCH") or v_landed is None or True,
-            f"verdict={tag}",
-        )
-
-    record(
-        "B table mid matches per-listing landed",
-        len(mismatches) == 0,
-        "; ".join(mismatches[:3]) if mismatches else f"{len(table)} rows checked",
-    )
-
-    # Fallback duty labeled estimated
-    fb_blob = blob + "\n" + export_text
-    has_import_fallback = any(
-        isinstance(x.get("landed_cost"), dict) and x["landed_cost"].get("duty_fallback")
-        for x in listings
-        if isinstance(x, dict)
-    )
-    if has_import_fallback:
-        record(
-            "B fallback duty labeled estimated",
-            "estimated" in fb_blob.lower()
-            and ("not a tariff" in fb_blob.lower() or "tariff lookup" in fb_blob.lower()),
-        )
-    else:
-        record(
-            "B fallback duty label (N/A — no import fallback rows)",
-            True,
-            "no duty_fallback listings in this run",
-        )
-
-    # No BEST when Skip
-    if tag in ("SKIP", "PASS", "NO_MATCH"):
-        any_best = any(bool(r.get("best_pick")) for r in table if isinstance(r, dict))
-        listing_best = any(bool(x.get("best_pick")) for x in listings if isinstance(x, dict))
-        record("B no BEST badge on Skip", not any_best and not listing_best, f"verdict={tag}")
-    else:
-        record(
-            "B BEST rule (Skip-only check skipped)",
-            True,
-            f"verdict={tag} — BEST allowed",
-        )
-
-    # Print detailed per-row landed breakdown
-    print("\n--- B raw landed-cost numbers (detailed) ---")
-    for i, x in enumerate(listings):
-        if not isinstance(x, dict):
-            continue
-        lc = x.get("landed_cost") if isinstance(x.get("landed_cost"), dict) else None
-        print_landed_row(i, x, lc)
-    if v_landed:
-        print(_safe(f"  [verdict] mid={v_landed.get('estimated_total')} "
-                    f"amount={v_landed.get('estimated_total_amount')} "
-                    f"duty={v_landed.get('duty_rate')}"))
-    print("--- end raw landed ---\n")
-
-    scan_banned_agent_fields(data, label="B response")
+    assert_case_b_payload(data, label="B")
     return data
+
+
+def assert_case_a_payload(status_code: int, detail: str) -> None:
+    record("A status is 422", status_code == 422, f"got {status_code}")
+    low = detail.lower()
+    record(
+        "A body mentions region not supported",
+        "region not supported" in low or "region_not_supported" in low,
+        detail[:240],
+    )
+    duty_vat = bool(
+        re.search(r"\b(duty|vat|sales_tax)\b", low)
+        and re.search(r"\d+\s*%|\d+\.\d+", detail)
+    )
+    record("A no duty/VAT rate numbers in response", not duty_vat, detail[:200])
+    scan_banned(detail, label="A response")
+
+
+def run_fixture_smoke() -> int:
+    """Deterministic smoke against saved responses (no live search / LLM)."""
+    print("Smoke: deal-finder fixtures (no live search)")
+    RESULTS.clear()
+
+    a_path = FIXTURES / "case_a_us_unsupported.json"
+    b_priced = FIXTURES / "case_b_uk_priced.json"
+    b_quote = FIXTURES / "case_b_uk_needs_quote.json"
+    for p in (a_path, b_priced, b_quote):
+        record(f"fixture exists {p.name}", p.is_file(), str(p))
+
+    if a_path.is_file():
+        print("\n=== A fixture) US unsupported ===")
+        a = json.loads(a_path.read_text(encoding="utf-8"))
+        detail = json.dumps(a.get("body") if "body" in a else a, ensure_ascii=False)
+        assert_case_a_payload(int(a.get("status_code", 422)), detail)
+
+    if b_priced.is_file():
+        print("\n=== B fixture) UK priced listings ===")
+        data = json.loads(b_priced.read_text(encoding="utf-8"))
+        assert_case_b_payload(data, label="B-priced")
+
+    if b_quote.is_file():
+        print("\n=== B fixture) UK needs-quote listing ===")
+        data = json.loads(b_quote.read_text(encoding="utf-8"))
+        assert_case_b_payload(data, label="B-quote")
+
+    case_c_prompts()
+    return _print_summary()
+
+
+def _print_summary() -> int:
+    print("\n======== PASS/FAIL TABLE ========")
+    if not RESULTS:
+        print("(no checks recorded)")
+        return 1
+    width = max(len(n) for n, _, _ in RESULTS)
+    print(f"{'Check'.ljust(width)}  Result  Detail")
+    print("-" * (width + 40))
+    fails = 0
+    for name, ok, detail in RESULTS:
+        mark = "PASS" if ok else "FAIL"
+        if not ok:
+            fails += 1
+        print(_safe(f"{name.ljust(width)}  {mark}  {detail[:80]}"))
+    print("-" * (width + 40))
+    print(f"Total: {len(RESULTS) - fails} passed, {fails} failed")
+    return 1 if fails else 0
 
 
 def case_c_prompts() -> None:
@@ -699,7 +795,17 @@ def case_c_prompts() -> None:
     )
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Deal-finder region / landed-cost smoke")
+    parser.add_argument(
+        "--fixtures",
+        action="store_true",
+        help="Run deterministic checks against scripts/fixtures/deal_finder_smoke (no live search)",
+    )
+    args = parser.parse_args(argv)
+    if args.fixtures:
+        return run_fixture_smoke()
+
     print("Smoke: deal-finder region / landed-cost")
     kind, client, _app = get_client()
     print(f"Client: {kind}")
@@ -708,20 +814,7 @@ def main() -> int:
     case_a(client, headers)
     case_b(client, headers)
     case_c_prompts()
-
-    print("\n======== PASS/FAIL TABLE ========")
-    width = max(len(n) for n, _, _ in RESULTS)
-    print(f"{'Check'.ljust(width)}  Result  Detail")
-    print("-" * (width + 40))
-    fails = 0
-    for name, ok, detail in RESULTS:
-        mark = "PASS" if ok else "FAIL"
-        if not ok:
-            fails += 1
-        print(_safe(f"{name.ljust(width)}  {mark}  {detail[:80]}"))
-    print("-" * (width + 40))
-    print(f"Total: {len(RESULTS) - fails} passed, {fails} failed")
-    return 1 if fails else 0
+    return _print_summary()
 
 
 if __name__ == "__main__":
