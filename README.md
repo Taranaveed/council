@@ -113,6 +113,29 @@ For production, put **Cloudflare** (or AWS CloudFront + global accelerator) in f
 - JWT bearer tokens
 - Protected mode endpoints require `Authorization: Bearer <token>`
 
+## Verify from a clean checkout
+
+“Tests pass” means they pass on a **clean git tree**, not only on a dirty working copy.
+
+```powershell
+powershell -File scripts/verify_clean_checkout.ps1
+```
+
+This script:
+
+1. Creates a temporary worktree of `HEAD` (no dirty overlay)
+2. Copies local `backend/.env` / `market-service/.env` if present (never committed)
+3. Installs backend + market-service deps
+4. Boots both services on free ports
+5. Runs `pytest`, `npm test`, and `python scripts/smoke_deal_finder_region.py --fixtures`
+6. Tears down the worktree
+
+Deterministic API smoke (no live search):
+
+```bash
+python scripts/smoke_deal_finder_region.py --fixtures
+```
+
 ## Legacy
 
 `POST /focus-group/run` and debate streaming routes remain available but are not used by the new UI.
