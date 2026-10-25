@@ -9,19 +9,35 @@ import {
   normalizeSerpLocation,
   resolveSearchLocale,
 } from "./regionConfig.js";
+import { getProfile, RegionNotSupportedError } from "./regionProfile.js";
 import { enrichListingsWithPagePrices, isWeakPrice } from "./pagePrice.js";
 import { siteSearchQueries } from "./siteSearch.js";
 import {
   filterAndRankListings,
   isBlockedSocialHost,
   isGarbagePrice,
+  isLocalMarketHost,
+  productMatchScore,
+  hostFromUrl,
 } from "./listingQuality.js";
 import { fetchDirectMarketplaceListings } from "./marketplaceDirect.js";
+import {
+  decorateAlibabaListings,
+  fetchAlibabaCatalog,
+  isAlibabaHost,
+} from "./alibabaSearch.js";
+import {
+  decorateWholesaleListings,
+  isKnownWholesaleHost,
+  rankBulkListings,
+  wholesaleSearchJobs,
+} from "./wholesaleSuppliers.js";
 import {
   annotateListingsCurrency,
   detectCurrency,
   expectedCurrencyForGl,
 } from "./currency.js";
+import { annotateListingsTiers, isProductDetailUrl } from "./listingTiers.js";
 import {
   buildSearchVariants,
   hasMaterialTerm,
@@ -29,6 +45,11 @@ import {
   shortenProductQuery,
   withRetries,
 } from "./searchQuery.js";
+import {
+  isMalformedPriceString,
+  normalizeListingPrice,
+  sanitizePriceRaw,
+} from "./priceParse.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -69,22 +90,45 @@ function inspectSerpApiKey(raw) {
 
 const keyInfo = inspectSerpApiKey(process.env.SERPAPI_KEY);
 
+// First price token only — do not greedily eat "$1.32" + ",000" MOQ glued together
 const PRICE_IN_TEXT =
-  /(?:Rs\.?|PKR|USD|\$|€|£|INR|AED|SAR)\s*[\d,.]+|\b[\d,.]+\s*(?:Rs\.?|PKR)\b/i;
+  /(?:Rs\.?|PKR|USD|\$|€|£|INR|AED|SAR)\s*\d{1,3}(?:,\d{3})*(?:\.\d+)?|\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*(?:Rs\.?|PKR)\b/i;
 
 function mapListing(item, extras = {}) {
   const price =
     item.price ||
     (item.extracted_price != null ? String(item.extracted_price) : null) ||
-    item.snippet ||
-    "N/A";
-  return {
+    null;
+  // Never fall back to the full SERP snippet — it produces bare "rs." / junk labels.
+  const snippetPrice =
+    !price && item.snippet ? String(item.snippet).match(PRICE_IN_TEXT)?.[0] : null;
+  let resolved = price || snippetPrice || "See listing";
+  resolved = typeof resolved === "string" ? resolved : String(resolved);
+  // Normalize / reject concatenated scrapes like "$1.321,000"
+  const norm = normalizeListingPrice(sanitizePriceRaw(resolved), "USD");
+  const out = {
     title: item.title || "Unknown",
-    price: typeof price === "string" ? price : String(price),
+    price: norm.price || "See listing",
     vendor: extras.vendor || item.source || item.merchant || item.displayed_link || "Unknown",
     link: item.link || item.product_link || "",
-    price_source: extras.price_source || (item.price || item.extracted_price != null ? "serp" : "snippet"),
+    price_source:
+      extras.price_source ||
+      (item.price || item.extracted_price != null ? "serp" : snippetPrice ? "snippet" : "pending"),
   };
+  if (norm.rejected || norm.unreliable || isMalformedPriceString(resolved)) {
+    out.unit_price_unreliable = true;
+    out.price_outlier = Boolean(norm.rejected);
+    out.price_outlier_reason =
+      norm.reason === "malformed_price_string" || isMalformedPriceString(resolved)
+        ? `Malformed price “${String(resolved).slice(0, 40)}” — likely unit+MOQ concat; check listing directly.`
+        : out.price_outlier_reason;
+    if (norm.rejected) {
+      out.price = "See listing";
+      out.needs_price_confirm = true;
+      out.counts_as_live_listing = false;
+    }
+  }
+  return out;
 }
 
 function extractListings(response, limit, extras = {}) {
@@ -150,8 +194,10 @@ function extractListings(response, limit, extras = {}) {
   if (keepNoPrice) {
     // Prefer local TLD / known shops among no-price rows
     const localFirst = [...withoutPrice].sort((a, b) => {
-      const aLocal = /\.pk(\/|$)|daraz\.|olx\./i.test(String(a.link || "")) ? 1 : 0;
-      const bLocal = /\.pk(\/|$)|daraz\.|olx\./i.test(String(b.link || "")) ? 1 : 0;
+      // Phase 1: prefer RegionProfile.local_host_patterns (extras.profile); PK golden list if absent
+      const profile = extras.profile || null;
+      const aLocal = isLocalMarketHost(String(a.link || ""), gl, profile) ? 1 : 0;
+      const bLocal = isLocalMarketHost(String(b.link || ""), gl, profile) ? 1 : 0;
       return bLocal - aLocal;
     });
     for (const row of localFirst) push(row);
@@ -265,12 +311,15 @@ async function fetchSerpListings({
   limit,
   preferredCurrency,
   rawQuery = null,
+  profile = null,
 }) {
   const useShopping = isShoppingGlSupported(gl);
   const engine = useShopping ? "google_shopping" : "google";
   const shortName = shortenProductQuery(productName);
   const placeHint = locale.locationLabel || locale.location || "";
-  const cur = String(preferredCurrency || expectedCurrencyForGl(gl) || "").toUpperCase();
+  const cur = String(
+    preferredCurrency || expectedCurrencyForGl(gl, profile) || "",
+  ).toUpperCase();
   const currencyHint =
     cur === "PKR" ? "Rs OR PKR" : cur && cur !== "USD" ? cur : "";
   // rawQuery = prebuilt variant (already includes currency/place); don't re-shorten
@@ -387,6 +436,7 @@ async function fetchSerpListings({
   const listings = extractListings(response, limit, {
     keepNoPrice: !useShopping || usedEngine === "google",
     gl,
+    profile,
   });
   return {
     listings,
@@ -401,15 +451,119 @@ async function fetchSerpListings({
   };
 }
 
-function countLocalCurrency(listings, preferredCurrency, gl) {
-  const expected = String(preferredCurrency || expectedCurrencyForGl(gl) || "").toUpperCase();
-  if (!expected) return (listings || []).length;
+function countLocalCurrency(listings, preferredCurrency, gl, profile = null) {
+  const expected = String(
+    preferredCurrency || expectedCurrencyForGl(gl, profile) || "",
+  ).toUpperCase();
   let n = 0;
   for (const row of listings || []) {
-    const cur = detectCurrency(row.price);
-    if (!cur || cur === expected) n += 1;
+    const price = String(row.price || "");
+    // Do not count "See listing" / bare currency as a local price hit
+    if (!/\d/.test(price) || /^(see\s+listing|n\/?a)/i.test(price.trim())) continue;
+    const cur = detectCurrency(price);
+    if (!expected) {
+      if (cur) n += 1;
+      continue;
+    }
+    if (cur === expected) n += 1;
   }
   return n;
+}
+
+function countUsableProductPages(listings, query) {
+  let n = 0;
+  for (const row of listings || []) {
+    if (!isProductDetailUrl(row.link)) continue;
+    if (productMatchScore(row, query) == null) continue;
+    const price = String(row.price || "");
+    const hasPrice =
+      Boolean(row.has_price_tier) ||
+      (/\d/.test(price) && !/^(see\s+listing|n\/?a)/i.test(price.trim()));
+    if (!hasPrice) continue;
+    n += 1;
+  }
+  return n;
+}
+
+/** Run async work over items with a fixed concurrency limit. */
+async function mapPool(items, concurrency, fn) {
+  const list = items || [];
+  const results = new Array(list.length);
+  let next = 0;
+  const workers = Math.max(1, Math.min(concurrency || 1, list.length || 1));
+  await Promise.all(
+    Array.from({ length: workers }, async () => {
+      while (next < list.length) {
+        const i = next++;
+        results[i] = await fn(list[i], i);
+      }
+    }),
+  );
+  return results;
+}
+
+async function fetchWholesaleSupplierListings({
+  productName,
+  locale,
+  gl,
+  hl,
+  apiKey,
+  limit = 12,
+  maxSuppliers = 3,
+  profile = null,
+}) {
+  const shortName = shortenProductQuery(productName);
+  const jobs = wholesaleSearchJobs(shortName, gl, { max: maxSuppliers });
+  console.log(`[wholesale] suppliers=${jobs.map((j) => j.vendor).join(", ")}`);
+
+  const batches = await mapPool(jobs, 3, async (job) => {
+    try {
+      console.log(`[wholesale] serp ${job.vendor} q="${job.query}"`);
+      const response = await serpGoogleSearch({
+        q: job.query,
+        locale: { ...locale, location: locale.location || "United States" },
+        gl: job.origin === "US" ? "us" : job.origin === "IN" ? "in" : "us",
+        hl: hl || "en",
+        apiKey,
+        num: 10,
+      });
+      if (response?.error) {
+        console.warn(`[wholesale] ${job.vendor} failed:`, response.error);
+        return [];
+      }
+      const rows = decorateWholesaleListings(
+        extractListings(response, 5, {
+          vendor: job.vendor,
+          price_source: "serp",
+          keepNoPrice: true,
+          gl,
+          profile,
+        }),
+        job,
+      ).filter((row) => isKnownWholesaleHost(row.link) || isAlibabaHost(row.link));
+      console.log(`[wholesale] ${job.vendor} kept ${rows.length}`);
+      return rows;
+    } catch (err) {
+      console.warn(`[wholesale] ${job.vendor} error: ${err?.message || err}`);
+      return [];
+    }
+  });
+
+  let listings = mergeListings(batches, Math.max(limit, 16));
+  const aliCount = listings.filter((r) => isAlibabaHost(r.link)).length;
+  // Only hit Alibaba HTML catalog when SERP returned almost nothing
+  if (listings.length < 3 || aliCount < 1) {
+    try {
+      const catalog = decorateAlibabaListings(
+        await fetchAlibabaCatalog(shortName, { limit: 8 }),
+      );
+      listings = mergeListings([listings, catalog], Math.max(limit, 16));
+    } catch (err) {
+      console.warn(`[wholesale] alibaba catalog error: ${err?.message || err}`);
+    }
+  }
+  console.log(`[wholesale] supplier listings=${listings.length}`);
+  return listings;
 }
 
 async function fetchSiteListings({
@@ -422,21 +576,19 @@ async function fetchSiteListings({
   preferredCurrency = null,
   earlyExitAt = 5,
   existingLocalCount = 0,
+  bulkMode = false,
+  profile = null,
 }) {
   const shortName = shortenProductQuery(productName);
-  const queries = siteSearchQueries(shortName, gl, 3);
-  const batches = [];
+  // Fewer site probes = faster; local hosts are ordered first in siteSearch
+  const queries = siteSearchQueries(shortName, gl, bulkMode ? 3 : 4, { bulkMode });
   let localCount = existingLocalCount;
+  const batches = [];
   let sitesTried = 0;
 
-  // Sequential to avoid SerpApi connection resets from parallel bursts
-  for (const { query, vendor, host } of queries) {
-    if (localCount >= earlyExitAt) {
-      console.log(
-        `[serpapi] site search early-exit: ${localCount} local-currency prices (need ${earlyExitAt})`,
-      );
-      break;
-    }
+  // Parallel site probes (cap 2) — big latency win vs sequential SerpApi
+  await mapPool(queries, 2, async ({ query, vendor, host }) => {
+    if (localCount >= earlyExitAt) return;
     sitesTried += 1;
     try {
       console.log(`[serpapi] site search gl=${gl} q="${query}"`);
@@ -450,13 +602,14 @@ async function fetchSiteListings({
       if (response?.error) {
         console.warn(`[serpapi] site search failed (${host}):`, response.error);
         batches.push([]);
-        continue;
+        return;
       }
       const rows = extractListings(response, perSite + 3, {
         vendor,
         price_source: "serp",
         keepNoPrice: true,
         gl,
+        profile,
       })
         .filter((row) => {
           const link = String(row.link || "").toLowerCase();
@@ -479,12 +632,11 @@ async function fetchSiteListings({
       console.log(`[serpapi] site ${host}: kept ${rows.length}`);
       batches.push(rows);
       localCount += countLocalCurrency(rows, preferredCurrency, gl);
-      await new Promise((r) => setTimeout(r, 250));
     } catch (err) {
       console.warn(`[serpapi] site search error (${host}):`, err?.message || err);
       batches.push([]);
     }
-  }
+  });
   return { listings: batches.flat(), sitesTried };
 }
 
@@ -501,9 +653,33 @@ app.get("/health", (_req, res) => {
   });
 });
 
+/** Fetch page facts for one or more listing URLs (top-pick refresh). */
+app.post("/market/page-facts", async (req, res) => {
+  try {
+    const { listings = [], query = "", preferredCurrency = null, gl = "us" } = req.body || {};
+    if (!Array.isArray(listings) || !listings.length) {
+      return res.json({ listings: [] });
+    }
+    const enriched = await enrichListingsWithPagePrices(listings.slice(0, 5), {
+      maxFetches: Math.min(5, listings.length),
+      gl,
+      query,
+      preferredCurrency,
+      concurrency: 2,
+      preferIndexes: listings.map((_, i) => i),
+    });
+    return res.json({ listings: enriched });
+  } catch (err) {
+    console.warn("[page-facts]", err?.message || err);
+    return res.status(500).json({ error: String(err?.message || err), listings: [] });
+  }
+});
+
 app.post("/market/prices", async (req, res) => {
-  const { productName, location, countryCode, gl, hl, limit, preferredCurrency } = req.body || {};
+  const { productName, location, countryCode, gl, hl, limit, preferredCurrency, bulkMode, quantity, budget } =
+    req.body || {};
   const startedAt = Date.now();
+  const isBulk = Boolean(bulkMode);
 
   if (!productName || typeof productName !== "string") {
     return res.status(400).json({ error: "productName is required" });
@@ -524,21 +700,49 @@ app.post("/market/prices", async (req, res) => {
       countryCode: countryCode || gl,
     });
     const resolvedGl = (gl || locale.gl).toLowerCase();
-    const currencyHint = String(preferredCurrency || expectedCurrencyForGl(resolvedGl) || "")
+    let profile;
+    try {
+      profile = getProfile({
+        location: locale.locationLabel || locale.location || location,
+        countryCode: resolvedGl,
+        currency: preferredCurrency,
+      });
+    } catch (err) {
+      if (err instanceof RegionNotSupportedError || err?.code === "region_not_supported") {
+        return res.status(422).json({
+          error: "region_not_supported",
+          message: err.message,
+          profile_id: err.profileId || resolvedGl,
+          supported: ["pk", "uk"],
+          listings: [],
+        });
+      }
+      throw err;
+    }
+    const currencyHint = String(
+      preferredCurrency || expectedCurrencyForGl(resolvedGl, profile) || "",
+    )
       .trim()
       .toUpperCase();
-    const safeLimit = Math.min(Math.max(Number(limit) || 8, 3), 12);
+    const safeLimit = Math.min(Math.max(Number(limit) || 8, 3), 16);
     const shoppingSupported = isShoppingGlSupported(resolvedGl);
-    const extractLimit = shoppingSupported ? Math.max(safeLimit, 12) : Math.max(safeLimit, 20);
-    const mergeCap = shoppingSupported ? Math.max(safeLimit * 2, 16) : Math.max(safeLimit * 3, 24);
+    const extractLimit = shoppingSupported
+      ? Math.max(safeLimit + 4, 16)
+      : Math.max(safeLimit + 8, 24);
+    const mergeCap = shoppingSupported
+      ? Math.max(safeLimit * 3, 32)
+      : Math.max(safeLimit * 4, 40);
     const shortName = shortenProductQuery(productName);
     const variants = buildSearchVariants(productName, {
       gl: resolvedGl,
       currency: currencyHint,
       location: locale.locationLabel || locale.location,
+      bulkMode: isBulk,
+      siteTldPass: profile?.serp?.site_tld_pass || null,
+      countryHint: profile?.display_name || null,
     });
     console.log(`[serpapi] searchQuery="${shortName}" (from "${String(productName).slice(0, 80)}")`);
-    console.log(`[serpapi] preferredCurrency=${currencyHint || "(none)"} gl=${resolvedGl}`);
+    console.log(`[serpapi] preferredCurrency=${currencyHint || "(none)"} gl=${resolvedGl} profile=${profile?.id || "?"}`);
     console.log(`[serpapi] variants=${JSON.stringify(variants)}`);
 
     // Primary search with first variant
@@ -551,18 +755,21 @@ app.post("/market/prices", async (req, res) => {
       limit: extractLimit,
       preferredCurrency: currencyHint || null,
       rawQuery: shoppingSupported ? null : variants[0] || null,
+      profile,
     });
 
     let primaryListings = primary.listings || [];
-    let primaryLocal = countLocalCurrency(primaryListings, currencyHint, resolvedGl);
+    let primaryLocal = countLocalCurrency(primaryListings, currencyHint, resolvedGl, profile);
     let altCount = 0;
 
-    // Multi-angle Google queries when Shopping unavailable or local comps are thin
+    // Cap alts hard — each is a full SerpApi round-trip (~2–8s).
+    const altCap = isBulk ? 1 : shoppingSupported ? 1 : 2;
     const needAlts =
-      !shoppingSupported || primaryLocal < 3 || primaryListings.length < 3;
+      !shoppingSupported || primaryLocal < 4 || primaryListings.length < 4;
     if (needAlts && variants.length > 1) {
-      for (const alt of variants.slice(1, 4)) {
-        if (primaryLocal >= 4 && primaryListings.length >= 6) break;
+      for (const alt of variants.slice(1, 1 + altCap)) {
+        if (primaryLocal >= 5 && primaryListings.length >= 8) break;
+        if (isBulk && primaryListings.length >= 6) break;
         console.log(`[serpapi] alternate query="${alt}"`);
         const extra = await fetchSerpListings({
           productName: shortName,
@@ -573,62 +780,117 @@ app.post("/market/prices", async (req, res) => {
           limit: extractLimit,
           preferredCurrency: currencyHint || null,
           rawQuery: alt,
+          profile,
         });
         altCount += (extra.listings || []).length;
         primaryListings = mergeListings(
           [primaryListings, extra.listings],
           mergeCap,
         );
-        primaryLocal = countLocalCurrency(primaryListings, currencyHint, resolvedGl);
-        await new Promise((r) => setTimeout(r, 200));
+        primaryLocal = countLocalCurrency(
+          primaryListings,
+          currencyHint,
+          resolvedGl,
+          profile,
+        );
       }
     }
 
     const earlyExitAt = Math.min(Math.max(safeLimit, 5), 8);
     const thinLocal = primaryLocal < 3;
-    const siteResult = await fetchSiteListings({
-      productName: shortName,
-      locale,
-      gl: resolvedGl,
-      hl: hl || locale.hl,
-      apiKey: currentKey.key,
-      perSite: thinLocal ? 3 : 2,
-      preferredCurrency: currencyHint || null,
-      earlyExitAt,
-      existingLocalCount: primaryLocal,
-    });
-    const siteListings = siteResult.listings || [];
-    const localAfterSites = primaryLocal + countLocalCurrency(siteListings, currencyHint, resolvedGl);
+    const usablePrimary = countUsableProductPages(primaryListings, shortName);
+    // Enough local for early site skip — but bulk still fetches a foreign lane
+    const haveEnoughLocal = primaryLocal >= earlyExitAt && usablePrimary >= 4;
 
-    // Direct Daraz/OLX catalog — only when local comps are still thin (slow + often blocked)
+    let siteListings = [];
+    let siteResult = { listings: [], sitesTried: 0 };
+    let wholesaleListings = [];
+
+    // Always probe local sites unless primary already has a strong live set
+    const needSites = !haveEnoughLocal && !(isBulk && usablePrimary >= 6);
+    // Bulk always pulls some foreign wholesale so the list isn't local-only
+    const needWholesale = isBulk;
+
+    // Run local site probes + foreign wholesale in parallel when both needed
+    if (needSites || needWholesale) {
+      const sitePromise = needSites
+        ? fetchSiteListings({
+            productName: shortName,
+            locale,
+            gl: resolvedGl,
+            hl: hl || locale.hl,
+            apiKey: currentKey.key,
+            perSite: thinLocal ? 3 : isBulk ? 2 : 2,
+            preferredCurrency: currencyHint || null,
+            earlyExitAt,
+            existingLocalCount: primaryLocal,
+            bulkMode: isBulk,
+            profile,
+          })
+        : Promise.resolve({ listings: [], sitesTried: 0 });
+      const wholesalePromise = needWholesale
+        ? fetchWholesaleSupplierListings({
+            productName: shortName,
+            locale,
+            gl: resolvedGl,
+            hl: hl || locale.hl,
+            apiKey: currentKey.key,
+            limit: Math.max(8, safeLimit),
+            // Fewer suppliers when local is already strong — keep foreign lane light but present
+            maxSuppliers: haveEnoughLocal ? 2 : 3,
+            profile,
+          }).catch((err) => {
+            console.warn(`[wholesale] supplier search failed: ${err?.message || err}`);
+            return [];
+          })
+        : Promise.resolve([]);
+
+      const [siteRes, wholesaleRes] = await Promise.all([sitePromise, wholesalePromise]);
+      siteResult = siteRes;
+      siteListings = siteRes.listings || [];
+      wholesaleListings = wholesaleRes || [];
+    } else {
+      console.log(
+        `[serpapi] skip site/wholesale — already have ${primaryLocal} local-currency prices`,
+      );
+    }
+    const localAfterSites =
+      primaryLocal +
+      countLocalCurrency(siteListings, currencyHint, resolvedGl, profile);
+
+    // Direct Daraz/OLX catalog — only when local comps are still thin
     let directListings = [];
-    if (localAfterSites < earlyExitAt && (!shoppingSupported || primaryLocal < 4)) {
+    const needDirect =
+      localAfterSites < earlyExitAt ||
+      (!shoppingSupported && usablePrimary < 3);
+    if (needDirect && (!shoppingSupported || primaryLocal < 4)) {
       try {
         directListings = await fetchDirectMarketplaceListings(shortName, {
           gl: resolvedGl,
-          limit: 8,
+          limit: isBulk ? 10 : 8,
           location: locale.locationLabel || "",
         });
-        // Also try a synonym phrase against marketplaces when thin
-        if (directListings.length < 3 && variants[2]) {
+        // One synonym pass max when still thin
+        if (directListings.length < 4 && variants[2]) {
           const more = await fetchDirectMarketplaceListings(variants[2], {
             gl: resolvedGl,
             limit: 6,
             location: locale.locationLabel || "",
           });
-          directListings = mergeListings([directListings, more], 12);
+          directListings = mergeListings([directListings, more], 14);
         }
       } catch (err) {
         console.warn(`[marketplace] direct fetch failed: ${err?.message || err}`);
       }
-    } else if (localAfterSites >= earlyExitAt) {
+    } else {
       console.log(
         `[marketplace] skip direct catalogs — already have ~${localAfterSites} local-currency prices`,
       );
     }
 
+    // Same-country first in merge order so foreign wholesale doesn't crowd out locals in the cap
     let listings = mergeListings(
-      [primaryListings, siteListings, directListings],
+      [directListings, siteListings, primaryListings, wholesaleListings],
       mergeCap,
     );
 
@@ -653,6 +915,7 @@ app.post("/market/prices", async (req, res) => {
           apiKey: currentKey.key,
           limit: safeLimit,
           preferredCurrency: currencyHint || null,
+          profile,
         });
         const extraSites = await fetchSiteListings({
           productName: broader,
@@ -660,10 +923,17 @@ app.post("/market/prices", async (req, res) => {
           gl: resolvedGl,
           hl: hl || locale.hl,
           apiKey: currentKey.key,
-          perSite: 2,
+          perSite: 3,
           preferredCurrency: currencyHint || null,
           earlyExitAt,
-          existingLocalCount: countLocalCurrency(listings, currencyHint, resolvedGl),
+          existingLocalCount: countLocalCurrency(
+            listings,
+            currencyHint,
+            resolvedGl,
+            profile,
+          ),
+          bulkMode: isBulk,
+          profile,
         });
         listings = mergeListings(
           [listings, extra.listings, extraSites.listings],
@@ -683,17 +953,34 @@ app.post("/market/prices", async (req, res) => {
       );
     });
 
-    const localBeforeEnrich = countLocalCurrency(listings, currencyHint, resolvedGl);
+    const localBeforeEnrich = countLocalCurrency(
+      listings,
+      currencyHint,
+      resolvedGl,
+      profile,
+    );
     const pendingPrice = listings.filter(
       (l) => isWeakPrice(l.price) || String(l.price_source || "") === "pending",
     ).length;
-    // When Serp/site already gave enough priced comps, only enrich a few weak rows.
+    // Prefer same-country / weak-price rows for the limited enrich budget
+    listings = [...listings].sort((a, b) => {
+      const aLocal = isLocalMarketHost(a.link, resolvedGl, profile) ? 1 : 0;
+      const bLocal = isLocalMarketHost(b.link, resolvedGl, profile) ? 1 : 0;
+      if (aLocal !== bLocal) return bLocal - aLocal;
+      const aWeak = isWeakPrice(a.price) ? 1 : 0;
+      const bWeak = isWeakPrice(b.price) ? 1 : 0;
+      return bWeak - aWeak;
+    });
+    // Cap page fetches hard — each can take 5–15s (Playwright fallback).
     const maxFetches =
       localBeforeEnrich >= earlyExitAt && pendingPrice <= 2
         ? Math.min(3, pendingPrice)
         : Math.min(
-            8,
-            Math.max(localBeforeEnrich < 3 || pendingPrice > 0 ? 6 : 4, Math.min(pendingPrice, 6)),
+            isBulk ? 4 : 5,
+            Math.max(
+              localBeforeEnrich < 3 || pendingPrice > 0 ? (isBulk ? 3 : 4) : 2,
+              Math.min(pendingPrice, isBulk ? 4 : 5),
+            ),
           );
     if (maxFetches > 0) {
       listings = await enrichListingsWithPagePrices(listings, {
@@ -701,7 +988,8 @@ app.post("/market/prices", async (req, res) => {
         gl: resolvedGl,
         query: shortName,
         preferredCurrency: currencyHint || null,
-        concurrency: 3,
+        concurrency: isBulk ? 3 : 3,
+        allowPlaywright: !isBulk,
       });
     } else {
       console.log("[serpapi] skip page enrich — enough priced local listings already");
@@ -710,13 +998,51 @@ app.post("/market/prices", async (req, res) => {
     listings.slice(0, 5).forEach((l, i) => {
       console.log(`  [${i}] ${l.vendor} | ${l.price} | src=${l.price_source}`);
     });
+    listings = annotateListingsTiers(listings, {
+      defaultCurrency:
+        currencyHint || expectedCurrencyForGl(resolvedGl, profile) || "USD",
+      quantity: quantity != null ? Number(quantity) : null,
+    });
+    // Fix mis-tagged factory "Rs 4" → USD before quality filter drops them
+    listings = annotateListingsCurrency(listings, resolvedGl, currencyHint || null);
     listings = filterAndRankListings(listings, {
       gl: resolvedGl,
-      limit: safeLimit,
+      limit: isBulk ? Math.max(safeLimit, 16) : safeLimit,
       query: shortName,
       preferredCurrency: currencyHint || null,
+      bulkMode: isBulk,
+      profile,
     });
+    // Re-annotate after filter (approx / mismatch on survivors)
     listings = annotateListingsCurrency(listings, resolvedGl, currencyHint || null);
+    if (isBulk) {
+      listings = rankBulkListings(listings, {
+        gl: resolvedGl,
+        quantity,
+        budget,
+        preferredCurrency: currencyHint || null,
+        profile,
+      });
+    }
+    // Top-pick page facts — only if enrich didn't already land them (avoid 2nd round-trip)
+    if (listings.length) {
+      const needFacts = listings
+        .slice(0, isBulk ? 1 : 2)
+        .map((row, i) => ({ row, i }))
+        .filter(({ row }) => !row.page_facts_fetched);
+      if (needFacts.length) {
+        listings = await enrichListingsWithPagePrices(listings, {
+          maxFetches: needFacts.length,
+          gl: resolvedGl,
+          query: shortName,
+          preferredCurrency: currencyHint || null,
+          concurrency: 2,
+          preferIndexes: needFacts.map((x) => x.i),
+          allowPlaywright: false,
+        });
+        listings = annotateListingsCurrency(listings, resolvedGl, currencyHint || null);
+      }
+    }
     console.log(`[serpapi] after quality filter: ${listings.length}`);
 
     const pageEnriched = listings.filter((l) => l.price_source === "page").length;
@@ -738,7 +1064,7 @@ app.post("/market/prices", async (req, res) => {
       const base = warning ? `${warning} ` : "";
       warning = `${base}Opened ${pageEnriched} seller page(s) to read live prices.`.trim();
     }
-    if (foreignOnly && currencyHint) {
+    if (foreignOnly && currencyHint && !isBulk) {
       const note =
         `No local ${currencyHint} prices found — only international listings. ` +
         `Treat them as reference only, not a local ${currencyHint} market median. ` +
@@ -749,12 +1075,23 @@ app.post("/market/prices", async (req, res) => {
         warning ||
         `No usable local ${currencyHint} seller prices for this query. Try a shorter product name.`;
     }
+    if (isBulk && wholesaleListings.length) {
+      const hosts = [...new Set(wholesaleListings.map((r) => r.vendor).filter(Boolean))];
+      const pick = listings.find((r) => r.best_pick);
+      const aliNote =
+        `Compared ${wholesaleListings.length} wholesale supplier listing(s) ` +
+        `(${hosts.slice(0, 5).join(", ") || "global B2B"}). ` +
+        (pick
+          ? `Best cheap pick for this region: ${pick.vendor || "supplier"} — ${pick.pick_reason || "ranked for unit price and location"}.`
+          : "USD factory quotes are not local retail prices.");
+      warning = warning ? `${warning} ${aliNote}` : aliNote;
+    }
 
     const elapsedMs = Date.now() - startedAt;
     console.log(
       `[serpapi] summary engine=${primary.engine} primary=${(primary.listings || []).length} ` +
         `alts=${altCount} site=${siteListings.length} sitesTried=${siteResult.sitesTried} ` +
-        `direct=${directListings.length} page=${pageEnriched} local=${localFinal} foreign=${foreignFinal} ` +
+        `direct=${directListings.length} wholesale=${wholesaleListings.length} page=${pageEnriched} local=${localFinal} foreign=${foreignFinal} ` +
         `total=${listings.length} ms=${elapsedMs}`,
     );
 
@@ -796,7 +1133,28 @@ app.post("/market/prices", async (req, res) => {
           countryCode: countryCode || gl,
         });
         const resolvedGl = (gl || locale.gl).toLowerCase();
-        const currencyHint = String(preferredCurrency || expectedCurrencyForGl(resolvedGl) || "")
+        let profile;
+        try {
+          profile = getProfile({
+            location: locale.locationLabel || locale.location || location,
+            countryCode: resolvedGl,
+            currency: preferredCurrency,
+          });
+        } catch (err) {
+          if (err instanceof RegionNotSupportedError || err?.code === "region_not_supported") {
+            return res.status(422).json({
+              error: "region_not_supported",
+              message: err.message,
+              profile_id: err.profileId || resolvedGl,
+              supported: ["pk", "uk"],
+              listings: [],
+            });
+          }
+          throw err;
+        }
+        const currencyHint = String(
+          preferredCurrency || expectedCurrencyForGl(resolvedGl, profile) || "",
+        )
           .trim()
           .toUpperCase();
         const safeLimit = Math.min(Math.max(Number(limit) || 8, 3), 12);
@@ -812,6 +1170,7 @@ app.post("/market/prices", async (req, res) => {
           preferredCurrency: currencyHint || null,
           earlyExitAt: 5,
           existingLocalCount: 0,
+          profile,
         });
         let listings = (siteResult.listings || []).filter(
           (row) => !isBlockedSocialHost(row.link) && !isBlockedSocialHost(row.vendor),
@@ -828,6 +1187,7 @@ app.post("/market/prices", async (req, res) => {
           limit: safeLimit,
           query: shortName,
           preferredCurrency: currencyHint || null,
+          profile,
         });
         listings = annotateListingsCurrency(listings, resolvedGl, currencyHint || null);
         return res.json({
