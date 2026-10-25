@@ -6,9 +6,7 @@ import re
 from typing import Any, Literal
 from urllib.parse import urlparse
 
-import httpx
-
-VendorStatus = Literal["Verified", "Unverified"]
+VendorStatus = Literal["Known marketplace", "Unknown"]
 
 # Known marketplace / retailer hosts we treat as having a real presence
 _TRUSTED_HOST_HINTS = (
@@ -31,6 +29,14 @@ _TRUSTED_HOST_HINTS = (
     "craigslist.",
     "alibaba.",
     "aliexpress.",
+    "indiamart.",
+    "made-in-china.",
+    "dhgate.",
+    "globalsources.",
+    "tradeindia.",
+    "europages.",
+    "thomasnet.",
+    "faire.",
     "apple.com",
     "sony.com",
     "samsung.com",
@@ -40,7 +46,6 @@ _TRUSTED_HOST_HINTS = (
     "ikea.",
     "costco.",
     "microcenter.",
-    "ebay.",
     "shopify.",
     "woocommerce.",
     "mercadolibre.",
@@ -90,6 +95,14 @@ _TRUSTED_VENDOR_NAMES = (
     "craigslist",
     "alibaba",
     "aliexpress",
+    "indiamart",
+    "made-in-china",
+    "dhgate",
+    "global sources",
+    "tradeindia",
+    "europages",
+    "thomasnet",
+    "faire",
     "apple",
     "sony",
     "samsung",
@@ -121,9 +134,9 @@ _TRUSTED_VENDOR_NAMES = (
 )
 
 
-def _sanitize_vendor_slug(vendor_name: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "", (vendor_name or "").lower())
-    return slug[:48]
+def is_known_marketplace_status(status: Any) -> bool:
+    s = str(status or "").strip().lower()
+    return s in ("known marketplace", "known_marketplace", "verified")
 
 
 def _hostname(url: str | None) -> str:
@@ -141,58 +154,32 @@ def _cache_key(vendor_name: str, link: str | None) -> str:
     return f"{vendor}|{host}"
 
 
+def _name_matches(blob: str, name: str) -> bool:
+    name = (name or "").strip().lower()
+    if not name or not blob:
+        return False
+    if blob == name:
+        return True
+    return re.search(rf"(?<![a-z0-9]){re.escape(name)}(?![a-z0-9])", blob) is not None
+
+
 def _vendor_name_trusted(vendor_name: str) -> bool:
     blob = (vendor_name or "").strip().lower()
     if not blob:
         return False
-    return any(name in blob for name in _TRUSTED_VENDOR_NAMES)
-
-
-def _candidate_urls(vendor_name: str, link: str | None = None) -> list[str]:
-    """Listing link first, then guessed vendor domains."""
-    urls: list[str] = []
-    if link and str(link).startswith("http"):
-        urls.append(str(link).strip())
-
-    slug = _sanitize_vendor_slug(vendor_name)
-    if len(slug) >= 3:
-        urls.extend(
-            [
-                f"https://www.{slug}.com",
-                f"https://{slug}.com",
-                f"https://www.{slug}.co.uk",
-                f"https://www.{slug}.pk",
-            ]
-        )
-    # de-dupe preserve order
-    seen: set[str] = set()
-    out: list[str] = []
-    for u in urls:
-        if u not in seen:
-            seen.add(u)
-            out.append(u)
-    return out
-
-
-async def _url_is_alive(client: httpx.AsyncClient, url: str) -> bool:
-    try:
-        # HEAD first; some sites block HEAD → fall back to GET
-        res = await client.head(url, follow_redirects=True)
-        if res.status_code < 400:
-            return True
-        if res.status_code in (405, 403, 401):
-            res = await client.get(url, follow_redirects=True)
-            return res.status_code < 400
-        return False
-    except Exception:
-        return False
+    return any(_name_matches(blob, name) for name in _TRUSTED_VENDOR_NAMES)
 
 
 def _host_looks_trusted(url: str) -> bool:
     host = _hostname(url)
     if not host:
         return False
-    return any(h in host for h in _TRUSTED_HOST_HINTS)
+    host = host[4:] if host.startswith("www.") else host
+    for hint in _TRUSTED_HOST_HINTS:
+        h = hint.rstrip(".").lower()
+        if host == h or host.startswith(h) or host.endswith("." + h):
+            return True
+    return False
 
 
 async def checkVendorExistence(
@@ -200,34 +187,15 @@ async def checkVendorExistence(
     link: str | None = None,
 ) -> VendorStatus:
     """
-    Return 'Verified' if the vendor appears to have an active website (or a live listing URL),
-    otherwise 'Unverified'.
-
-    Prefer checking the listing `link` when available so we don't invent vendors.
+    Return 'Known marketplace' only when the listing host or vendor name matches
+    a known marketplace. A live HTTP URL is NOT verification.
     """
     name = (vendorName or "").strip()
-    if not name and not link:
-        return "Unverified"
-
-    # Fast path: known marketplace name in vendor/source string
     if name and _vendor_name_trusted(name):
-        return "Verified"
-
-    # Fast path: known major hosts on the listing link
+        return "Known marketplace"
     if link and _host_looks_trusted(link):
-        return "Verified"
-
-    candidates = _candidate_urls(name, link)
-    if not candidates:
-        return "Unverified"
-
-    timeout = httpx.Timeout(4.0, connect=2.0)
-    async with httpx.AsyncClient(timeout=timeout, headers={"User-Agent": "SyntheticFocusGroup/1.0"}) as client:
-        # Always try the listing link first (even if host is not on the allowlist)
-        for url in candidates[:4]:
-            if await _url_is_alive(client, url):
-                return "Verified"
-    return "Unverified"
+        return "Known marketplace"
+    return "Unknown"
 
 
 # Snake_case alias for Python call sites
@@ -238,7 +206,7 @@ async def check_vendor_existence(vendor_name: str, link: str | None = None) -> V
 async def enrich_listings_with_vendor_status(
     listings: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Attach vendor_status Verified|Unverified to each listing (unique vendor+host checked once)."""
+    """Attach vendor_status Known marketplace|Unknown (unique vendor+host checked once)."""
     if not listings:
         return listings
 
@@ -254,8 +222,7 @@ async def enrich_listings_with_vendor_status(
         cache[key] = status
         return status
 
-    # Bound concurrency
-    sem = asyncio.Semaphore(5)
+    sem = asyncio.Semaphore(8)
 
     async def run_one(item: dict[str, Any]) -> dict[str, Any]:
         async with sem:
