@@ -60,21 +60,24 @@ def get_watchlist(_user: dict = Depends(get_current_user)):
 
 @router.post("/watchlist")
 def create_watch(body: WatchCreate, _user: dict = Depends(get_current_user)):
-    row = watch_db.add_watch(
-        user_id=int(_user["id"]),
-        item_name=body.item_name,
-        location=body.location,
-        currency=body.currency,
-        quantity=body.quantity,
-        max_unit_price=body.max_unit_price,
-        max_landed=body.max_landed,
-        tracked_url=body.tracked_url,
-        listing_title=body.listing_title,
-        listing_vendor=body.listing_vendor,
-        native_currency=body.native_currency,
-        saved_price=body.saved_price,
-        saved_price_source=body.saved_price_source,
-    )
+    try:
+        row = watch_db.add_watch(
+            user_id=int(_user["id"]),
+            item_name=body.item_name,
+            location=body.location,
+            currency=body.currency,
+            quantity=body.quantity,
+            max_unit_price=body.max_unit_price,
+            max_landed=body.max_landed,
+            tracked_url=body.tracked_url,
+            listing_title=body.listing_title,
+            listing_vendor=body.listing_vendor,
+            native_currency=body.native_currency,
+            saved_price=body.saved_price,
+            saved_price_source=body.saved_price_source,
+        )
+    except watch_db.WatchLimitError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return row
 
 

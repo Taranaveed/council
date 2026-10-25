@@ -315,3 +315,49 @@ def test_same_price_does_not_alert_twice():
     assert second["notification"] is None
     assert second["suppressed"] is True
     assert second["suppress_reason"] == "unchanged_since_last_alert"
+
+
+def test_max_watches_per_user_has_clear_message(monkeypatch):
+    monkeypatch.setenv("MAX_WATCHES_PER_USER", "2")
+    user = create_user(f"limit_{uuid.uuid4().hex[:10]}@example.com", "hash")
+    uid = int(user["id"])
+    for i in range(2):
+        _tracked_watch(
+            uid,
+            tracked_url=f"https://example.com/product/{i}",
+        )
+    try:
+        _tracked_watch(uid, tracked_url="https://example.com/product/overflow")
+        assert False, "expected WatchLimitError"
+    except watch_db.WatchLimitError as exc:
+        assert exc.limit == 2
+        assert "Remove a watch before adding another" in str(exc)
+
+
+def test_watch_cache_shared_across_users_for_same_query_and_url():
+    import asyncio
+
+    suffix = uuid.uuid4().hex[:10]
+    u1 = create_user(f"cache1_{suffix}@example.com", "hash")
+    u2 = create_user(f"cache2_{suffix}@example.com", "hash")
+    url = f"https://example.com/product/shared-{suffix}"
+    w1 = _tracked_watch(int(u1["id"]), tracked_url=url)
+    w2 = _tracked_watch(int(u2["id"]), tracked_url=url)
+    page = {
+        "available": True,
+        "url": url,
+        "price": "$9.50",
+        "currency": "USD",
+        "price_source": "page",
+        "page_price_verified": True,
+    }
+    fetch = AsyncMock(return_value=page)
+    with patch(
+        "app.core.market_client.fetch_tracked_listing_price",
+        new=fetch,
+    ):
+        first = asyncio.run(check_one_watch(w1, notify=False, force=False))
+        second = asyncio.run(check_one_watch(w2, notify=False, force=False))
+    fetch.assert_awaited_once()
+    assert first["cache_hit"] is False
+    assert second["cache_hit"] is True

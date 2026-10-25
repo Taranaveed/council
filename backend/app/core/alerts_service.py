@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -14,6 +15,7 @@ from app.utils.notify_email import email_configured, send_alert_email
 
 DROP_PCT = float(os.getenv("ALERT_DROP_PCT") or "0.05")  # 5%
 ALERT_COOLDOWN_DAYS = float(os.getenv("ALERT_COOLDOWN_DAYS") or "3")
+WATCH_CACHE_TTL_HOURS = float(os.getenv("WATCH_CACHE_TTL_HOURS") or "6")
 FRONTEND = (os.getenv("FRONTEND_ORIGIN") or "http://127.0.0.1:5173").rstrip("/")
 
 
@@ -122,11 +124,21 @@ async def check_one_watch(
     if not tracked_url:
         raise ValueError("Watch has no saved listing URL; remove it and watch a listing again.")
 
-    refreshed = await fetch_tracked_listing_price(
-        url=tracked_url,
-        query=query,
-        native_currency=native_currency,
+    cache_material = (
+        f"{query.strip().lower()}|{tracked_url.strip().lower()}|{native_currency}"
     )
+    cache_key = hashlib.sha256(cache_material.encode("utf-8")).hexdigest()
+    refreshed = None if force else watch_db.get_cached_watch_result(
+        cache_key, ttl_hours=WATCH_CACHE_TTL_HOURS
+    )
+    cache_hit = refreshed is not None
+    if refreshed is None:
+        refreshed = await fetch_tracked_listing_price(
+            url=tracked_url,
+            query=query,
+            native_currency=native_currency,
+        )
+        watch_db.put_cached_watch_result(cache_key, refreshed)
     available = bool(refreshed.get("available"))
     vendor = str(item.get("listing_vendor") or "") or None
     best_link = tracked_url
@@ -175,6 +187,7 @@ async def check_one_watch(
             "email": None,
             "best_price": None,
             "price_source": "unavailable",
+            "cache_hit": cache_hit,
             "suppressed": not allowed,
             "suppress_reason": suppress_reason if not allowed else None,
         }
@@ -294,6 +307,7 @@ async def check_one_watch(
         "notification": notif,
         "email": email_result,
         "best_price": best_price,
+        "cache_hit": cache_hit,
         "suppressed": bool(alert_candidate and not allowed),
         "suppress_reason": suppress_reason if alert_candidate and not allowed else None,
     }

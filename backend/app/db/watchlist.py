@@ -2,10 +2,19 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from typing import Any, Optional
 
 from app.db.users import DB_PATH, _connect
+
+
+class WatchLimitError(ValueError):
+    def __init__(self, limit: int):
+        self.limit = limit
+        super().__init__(
+            f"Watch limit reached ({limit}). Remove a watch before adding another."
+        )
 
 
 def init_watchlist_db() -> None:
@@ -36,6 +45,15 @@ def init_watchlist_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_watch_user_active "
             "ON watchlist_items(user_id, active)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS watch_check_cache (
+                cache_key TEXT PRIMARY KEY,
+                payload_json TEXT NOT NULL,
+                checked_at TEXT NOT NULL
+            )
+            """
         )
         cols = {r[1] for r in conn.execute("PRAGMA table_info(watchlist_items)").fetchall()}
         if "last_notified_at" not in cols:
@@ -95,6 +113,16 @@ def add_watch(
     from app.db.briefs import normalize_query
 
     with _connect() as conn:
+        max_watches = max(1, int(os.getenv("MAX_WATCHES_PER_USER") or "10"))
+        count_row = conn.execute(
+            """
+            SELECT COUNT(*) AS n FROM watchlist_items
+            WHERE user_id = ? AND active = 1
+            """,
+            (user_id,),
+        ).fetchone()
+        if int(count_row["n"] if count_row else 0) >= max_watches:
+            raise WatchLimitError(max_watches)
         cur = conn.execute(
             """
             INSERT INTO watchlist_items (
@@ -284,3 +312,46 @@ def list_active_watch_user_ids() -> list[int]:
             "SELECT DISTINCT user_id FROM watchlist_items WHERE active = 1"
         ).fetchall()
         return [int(r["user_id"]) for r in rows]
+
+
+def get_cached_watch_result(
+    cache_key: str, *, ttl_hours: float = 6.0
+) -> Optional[dict[str, Any]]:
+    from datetime import datetime, timedelta, timezone
+
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(hours=max(0.0, float(ttl_hours)))
+    ).replace(tzinfo=None).isoformat(timespec="seconds")
+    with _connect() as conn:
+        row = conn.execute(
+            """
+            SELECT payload_json FROM watch_check_cache
+            WHERE cache_key = ? AND datetime(checked_at) >= datetime(?)
+            """,
+            (cache_key, cutoff),
+        ).fetchone()
+    if not row:
+        return None
+    try:
+        payload = json.loads(str(row["payload_json"]))
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+
+
+def put_cached_watch_result(cache_key: str, payload: dict[str, Any]) -> None:
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO watch_check_cache (cache_key, payload_json, checked_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(cache_key) DO UPDATE SET
+                payload_json = excluded.payload_json,
+                checked_at = excluded.checked_at
+            """,
+            (cache_key[:1000], json.dumps(payload, default=str), now),
+        )
+        conn.commit()
