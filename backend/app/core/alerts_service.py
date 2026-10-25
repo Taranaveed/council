@@ -18,6 +18,39 @@ DROP_PCT = float(os.getenv("ALERT_DROP_PCT") or "0.05")  # 5%
 ALERT_COOLDOWN_DAYS = float(os.getenv("ALERT_COOLDOWN_DAYS") or "3")
 WATCH_CACHE_TTL_HOURS = float(os.getenv("WATCH_CACHE_TTL_HOURS") or "6")
 FRONTEND = (os.getenv("FRONTEND_ORIGIN") or "http://127.0.0.1:5173").rstrip("/")
+PUBLIC_API = (
+    os.getenv("PUBLIC_API_ORIGIN") or "http://127.0.0.1:8000"
+).rstrip("/")
+EMAIL_DAILY_CAP = int(os.getenv("ALERT_EMAIL_DAILY_CAP") or "3")
+
+
+def _send_notification_email(
+    *,
+    user_id: int,
+    notification: dict[str, Any],
+    subject: str,
+    body: str,
+) -> dict[str, Any]:
+    if not email_configured():
+        return {"ok": False, "skipped": True, "reason": "email_disabled"}
+    if not notif_db.email_is_allowed(user_id):
+        return {"ok": False, "skipped": True, "reason": "unsubscribed"}
+    if notif_db.emailed_today_count(user_id) >= max(1, EMAIL_DAILY_CAP):
+        return {"ok": False, "skipped": True, "reason": "daily_cap"}
+    user = get_user_by_id(user_id) or {}
+    token = notif_db.get_or_create_unsubscribe_token(user_id)
+    unsubscribe_url = (
+        f"{PUBLIC_API}/api/workspace/email/unsubscribe/{token}"
+    )
+    result = send_alert_email(
+        to_email=str(user.get("email") or ""),
+        subject=subject,
+        body=f"{body}\n\nUnsubscribe: {unsubscribe_url}\n",
+        unsubscribe_url=unsubscribe_url,
+    )
+    if result.get("ok") and notification.get("id"):
+        notif_db.mark_emailed(int(notification["id"]))
+    return result
 
 
 def parse_price_num(raw: Any) -> float | None:
@@ -289,18 +322,15 @@ async def check_one_watch(
                 alerted_price=best_n,
                 fingerprint=fingerprint,
             )
-        if notif and email_configured():
-            user = get_user_by_id(user_id) or {}
-            to = str(user.get("email") or "")
+        if notif:
             link_line = f"\nListing: {best_link}" if best_link else ""
             desk = f"\nOpen Council: {FRONTEND}/buyer"
-            email_result = send_alert_email(
-                to_email=to,
+            email_result = _send_notification_email(
+                user_id=user_id,
+                notification=notif,
                 subject=f"Council: {alert_payload['title']} — {query}",
                 body=f"{alert_payload['body']}{link_line}{desk}\n",
             )
-            if email_result.get("ok") and notif.get("id"):
-                notif_db.mark_emailed(int(notif["id"]))
 
     return {
         "watch": updated or item,
@@ -349,15 +379,14 @@ async def process_reorder_reminders(*, limit: int = 40) -> dict[str, Any]:
         if notif:
             created += 1
             if email_configured():
-                user = get_user_by_id(user_id) or {}
-                res = send_alert_email(
-                    to_email=str(user.get("email") or ""),
+                res = _send_notification_email(
+                    user_id=user_id,
+                    notification=notif,
                     subject=f"Council: Reorder reminder — {name}",
                     body=f"{body}\n\nOpen Council: {FRONTEND}/buyer?brief={brief_id}\n",
                 )
                 if res.get("ok"):
                     emailed += 1
-                    notif_db.mark_emailed(int(notif["id"]))
     return {"reminders_due": len(due), "notifications_created": created, "emailed": emailed}
 
 

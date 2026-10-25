@@ -42,6 +42,13 @@ class OrderMark(BaseModel):
     days: int = Field(default=30, ge=7, le=180)
 
 
+class BounceEvent(BaseModel):
+    email: str = Field(..., min_length=3, max_length=320)
+    event_type: Optional[str] = Field(default=None, max_length=80)
+    provider_event_id: Optional[str] = Field(default=None, max_length=200)
+    payload: Optional[dict] = None
+
+
 @router.get("/credits")
 def get_credits(_user: dict = Depends(get_current_user)):
     return credits_db.credit_status(int(_user["id"]))
@@ -185,3 +192,41 @@ async def run_external_cron(
         owner_id=f"cron-{uuid.uuid4().hex}",
         lease_seconds=600,
     )
+
+
+@router.api_route(
+    "/email/unsubscribe/{token}",
+    methods=["GET", "POST"],
+)
+def unsubscribe_alert_email(token: str):
+    ok = notif_db.unsubscribe_by_token(token)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Unsubscribe link not found.")
+    return {"ok": True, "message": "Council alert emails are unsubscribed."}
+
+
+@router.post("/email/bounce")
+def ingest_email_bounce(
+    body: BounceEvent,
+    x_bounce_secret: Optional[str] = Header(
+        default=None, alias="X-Bounce-Secret"
+    ),
+):
+    """Provider-neutral bounce webhook stub; adapters can map provider payloads here."""
+    expected = (os.getenv("EMAIL_BOUNCE_SECRET") or "").strip()
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="Bounce ingestion is disabled until EMAIL_BOUNCE_SECRET is set.",
+        )
+    if not x_bounce_secret or not secrets.compare_digest(
+        x_bounce_secret.strip(), expected
+    ):
+        raise HTTPException(status_code=401, detail="Invalid bounce secret.")
+    notif_db.record_bounce(
+        email=body.email,
+        event_type=body.event_type,
+        provider_event_id=body.provider_event_id,
+        payload=body.payload,
+    )
+    return {"ok": True}

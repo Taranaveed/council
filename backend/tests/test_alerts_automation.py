@@ -18,6 +18,7 @@ from app.db.users import create_user, init_db
 from app.db.briefs import init_briefs_db
 from app.db.watchlist import init_watchlist_db
 from app.db.notifications import init_notifications_db
+from app.utils.notify_email import email_configured, send_alert_email
 
 
 def setup_module(_mod=None):
@@ -408,3 +409,77 @@ def test_external_cron_endpoint_is_secret_protected(monkeypatch):
         assert response.status_code == 200
         assert response.json()["skipped"] is False
         tick.assert_awaited_once()
+
+
+def test_email_disabled_by_default_even_with_smtp(monkeypatch):
+    monkeypatch.delenv("ALERT_EMAIL_ENABLED", raising=False)
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_FROM", "alerts@example.com")
+    assert email_configured() is False
+    monkeypatch.setenv("ALERT_EMAIL_ENABLED", "1")
+    assert email_configured() is True
+
+
+def test_email_has_list_unsubscribe_headers(monkeypatch):
+    monkeypatch.setenv("ALERT_EMAIL_ENABLED", "1")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_FROM", "alerts@example.com")
+    monkeypatch.setenv("SMTP_TLS", "0")
+    smtp = patch("app.utils.notify_email.smtplib.SMTP").start()
+    try:
+        result = send_alert_email(
+            to_email="buyer@example.com",
+            subject="Price drop",
+            body="A watched price changed.",
+            unsubscribe_url="https://api.example.com/api/workspace/email/unsubscribe/t",
+        )
+    finally:
+        patch.stopall()
+    assert result["ok"] is True
+    sent = smtp.return_value.__enter__.return_value.send_message.call_args.args[0]
+    assert "api/workspace/email/unsubscribe/t" in sent["List-Unsubscribe"]
+    assert sent["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
+
+
+def test_unsubscribe_daily_cap_and_bounce_suppression():
+    from app.core import alerts_service
+
+    user = create_user(f"email_{uuid.uuid4().hex[:10]}@example.com", "hash")
+    uid = int(user["id"])
+    token = notif_db.get_or_create_unsubscribe_token(uid)
+    assert notif_db.email_is_allowed(uid) is True
+    assert notif_db.unsubscribe_by_token(token) is True
+    assert notif_db.email_is_allowed(uid) is False
+
+    # New user: three marked sends hit the default daily cap.
+    user2 = create_user(f"cap_{uuid.uuid4().hex[:10]}@example.com", "hash")
+    uid2 = int(user2["id"])
+    last = None
+    for i in range(3):
+        last = notif_db.create_notification(
+            user_id=uid2,
+            kind="deal_alert",
+            title=f"n{i}",
+            body="body",
+            dedupe_key=f"cap-{uid2}-{i}",
+        )
+        notif_db.mark_emailed(int(last["id"]))
+    with patch("app.core.alerts_service.email_configured", return_value=True):
+        capped = alerts_service._send_notification_email(
+            user_id=uid2,
+            notification=last,
+            subject="test",
+            body="test",
+        )
+    assert capped["reason"] == "daily_cap"
+
+    user3 = create_user(f"bounce_{uuid.uuid4().hex[:10]}@example.com", "hash")
+    uid3 = int(user3["id"])
+    notif_db.get_or_create_unsubscribe_token(uid3)
+    notif_db.record_bounce(
+        email=user3["email"],
+        event_type="hard_bounce",
+        provider_event_id="evt-1",
+        payload={"provider": "stub"},
+    )
+    assert notif_db.email_is_allowed(uid3) is False

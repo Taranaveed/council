@@ -9,7 +9,9 @@ from typing import Any
 
 def email_configured() -> bool:
     return bool(
-        (os.getenv("SMTP_HOST") or "").strip()
+        (os.getenv("ALERT_EMAIL_ENABLED") or "").strip().lower()
+        in ("1", "true", "yes", "on")
+        and (os.getenv("SMTP_HOST") or "").strip()
         and (os.getenv("SMTP_FROM") or "").strip()
     )
 
@@ -19,6 +21,7 @@ def send_alert_email(
     to_email: str,
     subject: str,
     body: str,
+    unsubscribe_url: str,
 ) -> dict[str, Any]:
     """
     Send a plain-text alert email when SMTP_* is configured.
@@ -41,6 +44,8 @@ def send_alert_email(
     msg["Subject"] = subject[:180]
     msg["From"] = from_addr
     msg["To"] = to
+    msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+    msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
     msg.set_content(body)
 
     try:
