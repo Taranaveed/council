@@ -10,7 +10,11 @@ import {
   resolveSearchLocale,
 } from "./regionConfig.js";
 import { getProfile, RegionNotSupportedError } from "./regionProfile.js";
-import { enrichListingsWithPagePrices, isWeakPrice } from "./pagePrice.js";
+import {
+  enrichListingsWithPagePrices,
+  fetchPageDetails,
+  isWeakPrice,
+} from "./pagePrice.js";
 import { siteSearchQueries } from "./siteSearch.js";
 import {
   filterAndRankListings,
@@ -672,6 +676,53 @@ app.post("/market/page-facts", async (req, res) => {
   } catch (err) {
     console.warn("[page-facts]", err?.message || err);
     return res.status(500).json({ error: String(err?.message || err), listings: [] });
+  }
+});
+
+/** Refresh one saved listing URL without substituting another search result. */
+app.post("/market/watch-price", async (req, res) => {
+  try {
+    const {
+      url = "",
+      query = "",
+      nativeCurrency = "USD",
+    } = req.body || {};
+    if (!/^https?:\/\//i.test(String(url))) {
+      return res.status(400).json({ error: "A valid listing URL is required" });
+    }
+    const details = await fetchPageDetails(String(url), {
+      query: String(query || ""),
+      defaultCurrency: String(nativeCurrency || "USD").toUpperCase(),
+      allowPlaywright: true,
+      timeoutMs: 8000,
+    });
+    if (!details) {
+      return res.json({
+        available: false,
+        url: String(url),
+        reason: "listing_unavailable",
+      });
+    }
+    const pagePrice =
+      details.price && !isWeakPrice(details.price) ? details.price : null;
+    return res.json({
+      available: true,
+      url: String(url),
+      title: details.title || null,
+      price: pagePrice,
+      currency: pagePrice
+        ? detectCurrency(pagePrice) || String(nativeCurrency || "USD").toUpperCase()
+        : String(nativeCurrency || "USD").toUpperCase(),
+      price_source: pagePrice ? "page" : null,
+      page_price_verified: Boolean(pagePrice),
+    });
+  } catch (err) {
+    console.warn("[watch-price]", err?.message || err);
+    return res.status(502).json({
+      available: false,
+      reason: "fetch_error",
+      error: String(err?.message || err),
+    });
   }
 });
 
