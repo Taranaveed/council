@@ -86,6 +86,7 @@ from app.utils.cost_assumptions import destination_prompt_block, shared_cost_ass
 from app.utils.debate_gates import apply_risk_hard_signal
 from app.utils.total_consistency import check_totals_consistency
 from app.utils.verdict_hedge import hedge_verdict_confidence
+from app.utils.sourced_facts import scrub_agent_texts, scrub_unsourced_coverage_brands
 
 router = APIRouter(prefix="/api/modes", tags=["modes"])
 
@@ -1697,6 +1698,33 @@ async def deal_finder(
         negotiation_message=negotiation_message,
         brief_id=brief_id,
     )
+
+    # Drop unsourced coverage brands (e.g. Trade Assurance) from agent prose
+    _mp = profile if isinstance(profile, dict) else {}
+    _mp_sourced = " ".join(
+        str(_mp.get(k) or "") for k in ("regulatory_notes", "safety_guidelines", "name")
+    )
+    transcript_raw = scrub_agent_texts(
+        transcript_raw, listings=listings, extra_sourced=_mp_sourced
+    ) or transcript_raw
+    buy_checklist = scrub_agent_texts(
+        buy_checklist, listings=listings, extra_sourced=_mp_sourced
+    ) or buy_checklist
+    _list_blob = "\n".join(
+        str(x.get("snippet") or "") + " " + str(x.get("title") or "")
+        for x in (listings or [])
+        if isinstance(x, dict)
+    )
+    if negotiation_message:
+        negotiation_message = scrub_unsourced_coverage_brands(
+            negotiation_message,
+            sourced_blob=_mp_sourced + "\n" + _list_blob,
+        )
+    if isinstance(export_text, str):
+        export_text = scrub_unsourced_coverage_brands(
+            export_text,
+            sourced_blob=_mp_sourced + "\n" + _list_blob,
+        )
 
     return DealFinderResponse(
         transcript=transcript_raw,
