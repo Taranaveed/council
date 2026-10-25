@@ -1,0 +1,92 @@
+{
+  "id": "pk",
+  "version": "region_pk_v1",
+  "country_code": "pk",
+  "display_name": "Pakistan",
+  "currency": "PKR",
+  "currency_symbols": ["Rs", "Rs.", "PKR"],
+  "language": "en",
+  "accept_language": "en-PK,en;q=0.9,ur;q=0.7",
+  "locale": "en-PK",
+  "trade_zone": "PK",
+  "fx_to_usd_fallback": 0.003597122302158273,
+  "fx_note": "Static fallback only (1/278). Live FX preferred when available.",
+  "serp": {
+    "default_location": "Pakistan",
+    "shopping_gl_supported": false,
+    "preferred_engine": "google",
+    "site_tld_pass": ".pk",
+    "city_aliases": [
+      { "match": "lahore", "serp_location": "Lahore,Punjab,Pakistan" },
+      { "match": "karachi", "serp_location": "Karachi,Sindh,Pakistan" },
+      { "match": "islamabad", "serp_location": "Islamabad,Islamabad Capital Territory,Pakistan" },
+      { "match": "rawalpindi", "serp_location": "Rawalpindi,Punjab,Pakistan" },
+      { "match": "faisalabad", "serp_location": "Faisalabad,Punjab,Pakistan" },
+      { "match": "multan", "serp_location": "Multan,Punjab,Pakistan" },
+      { "match": "peshawar", "serp_location": "Peshawar,Khyber Pakhtunkhwa,Pakistan" }
+    ]
+  },
+  "local_host_patterns": [
+    "\\.pk(\\/|$)",
+    "daraz\\.",
+    "olx\\.",
+    "priceoye\\.",
+    "homeshopping\\.",
+    "telemart\\.",
+    "shophive\\.",
+    "mega\\.pk",
+    "symbios\\.",
+    "tjwholesale\\.",
+    "abwholesale\\.",
+    "imwholesale\\.",
+    "meerzah\\.",
+    "laam\\."
+  ],
+  "local_marketplace_slugs": ["olx_pakistan", "daraz_pk", "local_retailers_pk"],
+  "wholesale_origin_preference": ["PK", "IN"],
+  "direct_adapters": ["daraz_pk", "olx_pk"],
+  "import_origin_groups": {
+    "domestic": ["PK"],
+    "import": ["CN", "IN", "AE", "US", "UK", "EU", "ROW"]
+  },
+  "min_plausible_price_retail": 1000,
+  "min_plausible_price_bulk": 150,
+  "drop_stub_price_below": 1000,
+  "sales_tax": {
+    "rate": 0.18,
+    "effective_date": "2026-01-01",
+    "source_url": "assumption://pk-sales-tax-table",
+    "label": "Sales tax assumption on CIF+duty+freight (not official FBR)"
+  },
+  "duty": {
+    "fallback": {
+      "rate_mid": 0.25,
+      "rate_low": 0.15,
+      "rate_high": 0.35,
+      "effective_date": "2026-01-01",
+      "source_url": "assumption://pk-currency-duty-fallback",
+      "label": "Flat currency fallback (not HS-coded) — assumption, not official customs"
+    },
+    "lookup": []
+  },
+  "freight_usd_per_kg": {
+    "low": 6.0,
+    "mid": 10.0,
+    "high": 16.0,
+    "effective_date": "2026-01-01",
+    "source_url": "assumption://cn-air-freight-band",
+    "label": "CN→destination air freight band (assumption)"
+  },
+  "shipping_flat_local": {
+    "amount": 8500,
+    "currency": "PKR",
+    "effective_date": "2026-01-01",
+    "source_url": "assumption://pk-flat-inbound",
+    "label": "Flat inbound placeholder when weight unknown"
+  },
+  "regulatory_focus": "Local PKR pricing; import/customs risk for inbound high-value goods; weaker private-sale remedies than EU retail.",
+  "prompt_examples": {
+    "currency_label": "PKR / Rs",
+    "avoid_city_list": ["Karachi", "Lahore", "Islamabad"]
+  }
+}
