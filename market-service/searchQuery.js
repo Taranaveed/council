@@ -5,6 +5,7 @@
  */
 
 import { expandSearchSynonyms } from "./synonyms.js";
+import { normalizeShopQuery } from "./listingQuality.js";
 
 const STOP = new Set([
   "a", "an", "the", "and", "or", "with", "for", "from", "that", "this", "these",
@@ -16,13 +17,14 @@ const STOP = new Set([
 
 const PRODUCT_NOUNS = [
   "earbuds", "earbud", "earphones", "earphone", "headphones", "headphone",
-  "headset", "buds", "airpods", "speaker", "speakers", "watch", "smartwatch",
+  "headset", "handsfree", "buds", "airpods", "speaker", "speakers", "watch", "smartwatch",
   // Accessory types before bare "leather" so "leather mobile covers" ≠ "leather"
   "covers", "cover", "cases", "case", "phonecase",
   "phone", "smartphone", "iphone", "laptop", "tablet", "camera", "charger",
   "powerbank", "keyboard", "mouse", "monitor", "tv", "router", "console",
   "jacket", "coat", "shoes", "sneakers", "bag", "backpack", "wallet", "belt",
   "purse", "handbag", "tote",
+  "ring", "rings", "jewelry", "jewellery", "necklace", "bracelet", "earring", "earrings",
   "pashmina", "shawl", "scarf", "stole", "dupatta", "stole", "wrap",
   "sweater", "hoodie", "dress", "saree", "kurta", "suit",
   "cashmere", "silk", "wool", "leather", "handmade",
@@ -32,16 +34,30 @@ const KEEP = new Set([
   "wireless", "bluetooth", "noise", "cancelling", "cancellation", "canceling",
   "anc", "tws", "true", "gaming", "sports", "waterproof", "water", "resistant",
   "pro", "max", "mini", "plus", "active", "bass", "stereo", "over", "ear",
-  "on", "in", "neckband", "bone", "conduction",
+  "on", "in", "neckband", "bone", "conduction", "handsfree", "wired",
   "handmade", "hand", "made", "kashmiri", "kashmir", "genuine", "pure",
   "leather", "wool", "silk", "cashmere", "pashmina", "organic", "vintage",
   "mobile", "phone", "cover", "covers", "case", "cases", "flip", "folio",
+  "ring", "rings", "jewelry", "jewellery", "ladies", "women", "womens", "silver", "gold",
 ]);
 
 const MATERIAL_RE =
   /\b(leather|suede|wool|silk|denim|cotton|cashmere|pashmina|linen|velvet)\b/i;
 
 const COMPOUNDS = [
+  {
+    test: /\bhands?[\s-]*frees?\b|\bhandsfrees?\b/i,
+    out: "handsfree earphones",
+  },
+  // "ladies rings" → jewelry (avoids Beyoncé / Barenaked Ladies SERP noise)
+  {
+    test: /\b(ladies?|womens?|women'?s?)\b.+\b(rings?|jewellery|jewelry)\b|\b(rings?)\b.+\b(ladies?|womens?|women'?s?)\b/i,
+    out: "women jewelry finger rings",
+  },
+  {
+    test: /\bfinger\s+rings?\b/i,
+    out: "finger rings jewelry",
+  },
   {
     test: /\bleather\b.+\b(mobile|phone)\b.+\b(cover|covers)\b|\b(mobile|phone)\b.+\bleather\b.+\b(cover|covers)\b|\bleather\b.+\b(cover|covers)\b/i,
     out: "leather phone cover",
@@ -65,10 +81,12 @@ export function hasMaterialTerm(text) {
 }
 
 export function shortenProductQuery(raw, { maxLen = 55 } = {}) {
-  const original = String(raw || "")
-    .replace(/[\r\n]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const original = normalizeShopQuery(
+    String(raw || "")
+      .replace(/[\r\n]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
   if (!original) return "product";
 
   const cleaned = original
@@ -160,7 +178,10 @@ export function shortenProductQuery(raw, { maxLen = 55 } = {}) {
  * 2–4 alternate search strings — organic-first (like a normal Google search),
  * then country / synonym / site:.pk passes for thin markets.
  */
-export function buildSearchVariants(productName, { gl, currency, location } = {}) {
+export function buildSearchVariants(
+  productName,
+  { gl, currency, location, bulkMode = false, siteTldPass = null, countryHint: countryHintOpt = null } = {},
+) {
   const base = shortenProductQuery(productName);
   const code = String(gl || "").toLowerCase();
   const cur = String(currency || "").toUpperCase();
@@ -168,7 +189,8 @@ export function buildSearchVariants(productName, { gl, currency, location } = {}
     .split(",")[0]
     .trim();
   const countryHint =
-    code === "pk" ? "Pakistan" : code === "in" ? "India" : place || "";
+    countryHintOpt ||
+    (code === "pk" ? "Pakistan" : code === "in" ? "India" : code === "uk" || code === "gb" ? "UK" : place || "");
   const raw = String(productName || "").toLowerCase();
   const wantsHandmade = /\bhandmade\b/i.test(raw) || /\bhandmade\b/i.test(base);
 
@@ -178,19 +200,51 @@ export function buildSearchVariants(productName, { gl, currency, location } = {}
 
   const variants = [organic];
 
+  const buyVariant = `buy ${organic}`.replace(/\s+/g, " ").trim();
+  if (!variants.includes(buyVariant)) variants.push(buyVariant);
+
+  if (bulkMode) {
+    // Diversify site: probes — IndiaMART / DHgate / Made-in-China, not Alibaba-only
+    for (const extra of [
+      `${organic} wholesale`,
+      `${organic} site:indiamart.com/proddetail`,
+      `${organic} site:dhgate.com/product`,
+      `${organic} site:made-in-china.com/product`,
+      `${organic} site:alibaba.com/product-detail`,
+    ]) {
+      const q = extra.replace(/\s+/g, " ").trim();
+      if (!variants.includes(q)) variants.push(q);
+    }
+  }
+
+  // Wired audio: bias SerpApi toward jack/3.5mm product pages, not TWS
+  if (/\bwired\b/i.test(organic) && /\b(handsfree|earphone|headphone|headset)\b/i.test(organic)) {
+    for (const extra of [
+      `${organic} 3.5mm`,
+      `wired earphones 3.5mm wholesale`,
+      `${organic} -wireless -tws -bluetooth`,
+    ]) {
+      const q = extra.replace(/\s+/g, " ").trim();
+      if (!variants.includes(q)) variants.unshift(q);
+    }
+  }
+
   if (countryHint) {
     const withCountry = `${organic} ${countryHint}`.replace(/\s+/g, " ").trim();
     if (!variants.includes(withCountry)) variants.push(withCountry);
   }
 
-  // Local TLD pass before synonyms (high recall for PK boutiques)
-  if (code === "pk") {
-    const sitePk = `${organic} site:.pk`.replace(/\s+/g, " ").trim();
-    if (!variants.includes(sitePk)) variants.push(sitePk);
+  // Local TLD pass from RegionProfile (pk → site:.pk; uk → site:.co.uk)
+  const siteTld =
+    siteTldPass ||
+    (code === "pk" ? ".pk" : code === "uk" || code === "gb" ? ".co.uk" : null);
+  if (siteTld) {
+    const siteQ = `${organic} site:${siteTld}`.replace(/\s+/g, " ").trim();
+    if (!variants.includes(siteQ)) variants.push(siteQ);
   }
 
   // Synonym expansions (e.g. pashmina → kashmiri shawl)
-  for (const syn of expandSearchSynonyms(productName, { max: 2 })) {
+  for (const syn of expandSearchSynonyms(productName, { max: bulkMode ? 3 : 2 })) {
     const synQ = wantsHandmade && !/\bhandmade\b/i.test(syn)
       ? `handmade ${syn}`
       : syn;
@@ -208,12 +262,13 @@ export function buildSearchVariants(productName, { gl, currency, location } = {}
 
   const seen = new Set();
   const out = [];
+  const cap = bulkMode ? 4 : 7;
   for (const v of variants) {
     const key = v.toLowerCase();
     if (!v || seen.has(key)) continue;
     seen.add(key);
     out.push(v);
-    if (out.length >= 5) break;
+    if (out.length >= cap) break;
   }
   return out;
 }

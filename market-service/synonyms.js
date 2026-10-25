@@ -4,6 +4,14 @@
 
 const SYNONYM_GROUPS = [
   {
+    trigger: /\b(hands?[\s-]*frees?|handsfrees?)\b/i,
+    extras: ["handsfree earphones", "wired handsfree", "bluetooth handsfree earphones"],
+  },
+  {
+    trigger: /\b(mist|mists|body\s*mist)\b/i,
+    extras: ["body mist 100ml", "fragrance body mist wholesale", "body spray mist"],
+  },
+  {
     trigger: /\bpashmina\b/i,
     extras: ["kashmiri shawl", "soft shawl", "pashmina shawl"],
   },
@@ -40,12 +48,22 @@ const SYNONYM_GROUPS = [
     trigger: /\b(iphone|samsung)\b/i,
     extras: [],
   },
+  {
+    trigger: /\b(wireless|bluetooth)\b/i,
+    extras: ["wireless earbuds", "bluetooth headphones"],
+    requireAlso: /\b(earbuds?|earphones?|headphones?)\b/i,
+  },
+  {
+    trigger: /\b(jacket|coat)\b/i,
+    extras: ["winter jacket", "outerwear"],
+    skipIf: /\b(leather|wool|denim|puffer|rain)\b/i,
+  },
 ];
 
 /**
  * Return extra search phrases derived from the product name (not including the base itself).
  */
-export function expandSearchSynonyms(productName, { max = 2 } = {}) {
+export function expandSearchSynonyms(productName, { max = 3 } = {}) {
   const raw = String(productName || "").trim();
   if (!raw) return [];
   const lower = raw.toLowerCase();

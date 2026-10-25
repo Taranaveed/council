@@ -12,10 +12,12 @@
  * searches fall back to regular Google Search (`engine=google`).
  * See: https://serpapi.com/google-shopping-countries
  */
-const DEFAULT_REGION = (process.env.DEFAULT_REGION || "us").toLowerCase();
-const DEFAULT_COUNTRY_CODE = (process.env.DEFAULT_COUNTRY_CODE || "us").toLowerCase();
+// Phase 1: UK is the deploy default. Pakistan remains a first-class profile
+// (golden fixture region_pk_v1) — Shopping for pk stays unsupported.
+const DEFAULT_REGION = (process.env.DEFAULT_REGION || "uk").toLowerCase();
+const DEFAULT_COUNTRY_CODE = (process.env.DEFAULT_COUNTRY_CODE || "uk").toLowerCase();
 const DEFAULT_LANGUAGE = process.env.DEFAULT_LANGUAGE || "en";
-const DEFAULT_LOCATION = process.env.DEFAULT_LOCATION || "United States";
+const DEFAULT_LOCATION = process.env.DEFAULT_LOCATION || "United Kingdom";
 
 /** Map free-text location → country code */
 const LOCATION_TO_GL = [
