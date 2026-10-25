@@ -60,9 +60,41 @@ def _parse_amount(raw: Any) -> float | None:
     return parse_money(raw)
 
 
-def _detect_currency(price: str, fallback: str = "USD") -> str:
+_FACTORY_USD_HOST = re.compile(
+    r"alibaba\.|made-in-china\.|dhgate\.|globalsources\.|aliexpress\.|1688\.",
+    re.I,
+)
+
+
+def _is_factory_usd_host(listing: dict[str, Any] | None) -> bool:
+    if not listing or not isinstance(listing, dict):
+        return False
+    blob = f"{listing.get('link') or ''} {listing.get('vendor') or ''}"
+    if _FACTORY_USD_HOST.search(blob):
+        return True
+    if listing.get("wholesale") or str(listing.get("supplier_origin") or "").upper() == "CN":
+        return True
+    return False
+
+
+def _detect_currency(
+    price: str,
+    fallback: str = "USD",
+    *,
+    listing: dict[str, Any] | None = None,
+) -> str:
+    """
+    Prefer explicit symbols in the price string. Never let a buyer-market
+    preferred currency override a $ marker. Factory/B2B hosts (Alibaba etc.)
+    quote USD — even when a page scrape rewrote the display as £ under a UK
+    preferredCurrency — so they always resolve as USD unless the string is an
+    explicit non-USD amount with no $ (rare; still prefer USD for these hosts).
+    """
     text = str(price or "")
-    if re.search(r"\$|USD", text, re.I):
+    if re.search(r"\$|USD|US\s*\$", text, re.I):
+        return "USD"
+    # Factory/B2B: USD quoting is the norm; buyer-locale £/Rs rewrites are bugs
+    if _is_factory_usd_host(listing):
         return "USD"
     if re.search(r"Rs\.?|PKR", text, re.I):
         return "PKR"
@@ -76,6 +108,9 @@ def _detect_currency(price: str, fallback: str = "USD") -> str:
         return "AED"
     if re.search(r"SAR", text, re.I):
         return "SAR"
+    listed = str((listing or {}).get("currency") or "").upper().strip()
+    if listed in ("USD", "PKR", "INR", "GBP", "EUR", "AED", "SAR", "CAD", "AUD"):
+        return listed
     return (fallback or "USD").upper()
 
 
@@ -146,7 +181,11 @@ def _pick_tier(
 ) -> tuple[float, str, int | None, str]:
     """Return (unit_amount, unit_currency, moq, source_label)."""
     card_amt = _parse_amount(listing.get("price"))
-    card_cur = _detect_currency(str(listing.get("price") or ""), str(listing.get("currency") or "USD"))
+    card_cur = _detect_currency(
+        str(listing.get("price") or ""),
+        str(listing.get("currency") or "USD"),
+        listing=listing,
+    )
 
     # Reject storefront / missing extracted unit prices
     if listing.get("unit_price_rejected") or str(listing.get("price_source") or "").lower() == "rejected_storefront":
@@ -221,7 +260,9 @@ def _pick_tier(
 
     price = str(listing.get("price") or "")
     amt = _parse_amount(price)
-    cur = _detect_currency(price, str(listing.get("currency") or "USD"))
+    cur = _detect_currency(
+        price, str(listing.get("currency") or "USD"), listing=listing
+    )
     moq = listing.get("moq")
     moq_n = None
     try:
@@ -500,16 +541,25 @@ def compute_landed_cost(
     except (TypeError, ValueError):
         delivery_fee = 0.0
 
-    def total_for(line: float, duty_rate: float, ship: float) -> float:
-        cif_duty = line + line * duty_rate + ship
-        import_vat = cif_duty * tax_rate
+    def total_for(line: float, duty_rate: float, ship: float) -> tuple[float, float, float, float]:
+        """
+        UK-style CIF duty: duty_base = goods + freight (+ insurance when known; none today).
+        VAT base = goods + freight + duty. Returns (landed, duty_amt, duty_base, vat_base).
+        """
+        duty_base = line + ship  # CIF (insurance omitted until we have a sourced line)
+        duty_amt = duty_base * duty_rate
+        vat_base = line + ship + duty_amt
+        import_vat = vat_base * tax_rate
         # Domestic VAT is a separate line — included in mid only when not reclaimable
         domestic_vat = (line * domestic_vat_rate) if domestic_vat_in_mid else 0.0
-        return cif_duty + import_vat + domestic_vat + delivery_fee
+        landed = line + ship + duty_amt + import_vat + domestic_vat + delivery_fee
+        return landed, duty_amt, duty_base, vat_base
 
-    raw_low = total_for(line_low, duty_low, ship_band["low"])
-    raw_mid = total_for(line_local, duty_mid, ship_band["mid"])
-    raw_high = total_for(line_high, duty_high, ship_band["high"])
+    raw_low, _, _, _ = total_for(line_low, duty_low, ship_band["low"])
+    raw_mid, duty_amt_mid, duty_base_mid, vat_base_mid = total_for(
+        line_local, duty_mid, ship_band["mid"]
+    )
+    raw_high, _, _, _ = total_for(line_high, duty_high, ship_band["high"])
     domestic_vat_amount = line_local * domestic_vat_rate if domestic_vat_rate else 0.0
     # Min/max of the three assumption paths; mid = mid-assumption if inside, else midpoint
     total_low = min(raw_low, raw_mid, raw_high)
@@ -558,7 +608,9 @@ def compute_landed_cost(
 
     unit_disp = _fmt(unit_amt, unit_cur)
     line_disp = _fmt(line_local, local)
-    duty_disp = _fmt(line_local * duty_mid, local)
+    duty_disp = _fmt(duty_amt_mid, local)
+    duty_base_disp = _fmt(duty_base_mid, local)
+    vat_base_disp = _fmt(vat_base_mid, local) if foreign else None
     ship_disp = _fmt(ship_band["mid"], local)
     total_disp = _fmt(total_mid, local)
     range_low_disp = _fmt(total_low, local)
@@ -566,20 +618,28 @@ def compute_landed_cost(
     domestic_vat_disp = _fmt(domestic_vat_amount, local) if domestic_vat_rate else None
     duty_meta = duty_bundle.get("duty_meta") if isinstance(duty_bundle.get("duty_meta"), dict) else {}
     duty_fallback_visible = bool(duty_meta.get("used_fallback")) and foreign
+    fx_meta_primary = fx_trail[-1] if fx_trail else None
+    fx_fallback_visible = bool(
+        isinstance(fx_meta_primary, dict) and fx_meta_primary.get("used_fallback")
+    )
 
     # Single unambiguous formula — never show a pre-duty line total with "=" that
     # readers confuse for the mid landed figure.
     formula = (
         f"Mid landed: {total_disp} "
         f"({qty} × {unit_disp} [{tier_label}]"
+        + (f" + freight ({ship_disp})" if ship_band["mid"] else " + freight 0")
         + (
-            f" + duty {int(duty_mid * 100)}% ({duty_disp})"
+            f" + duty {int(duty_mid * 100)}% on CIF duty base {duty_base_disp} ({duty_disp})"
             + (" [estimated, not a tariff lookup]" if duty_fallback_visible else "")
             if duty_mid
             else " + duty 0%"
         )
-        + (f" + freight ({ship_disp})" if ship_band["mid"] else " + freight 0")
-        + (f" + import VAT {int(tax_rate * 100)}%" if tax_rate else "")
+        + (
+            f" + import VAT {int(tax_rate * 100)}% on {vat_base_disp}"
+            if tax_rate and vat_base_disp
+            else (f" + import VAT {int(tax_rate * 100)}%" if tax_rate else "")
+        )
         + (
             f" + domestic VAT {int(domestic_vat_rate * 100)}% ({domestic_vat_disp})"
             if domestic_vat_in_mid and domestic_vat_rate
@@ -590,6 +650,11 @@ def compute_landed_cost(
             )
         )
         + (f" + delivery {_fmt(delivery_fee, local)}" if delivery_fee else "")
+        + (
+            " [FX: static fallback, not a live rate]"
+            if fx_fallback_visible
+            else ""
+        )
         + f"). Range: {range_low_disp} – {range_high_disp}."
     )
     # Guard: display strings must agree with ordered amounts
@@ -616,10 +681,32 @@ def compute_landed_cost(
         if foreign and ship_meta.get("method") == "weight_x_freight"
         else ship_meta.get("freight_assumption", "n/a")
     )
+    # Explicit derivation line for brief/table (weight × rate → freight amount)
+    if foreign and ship_meta.get("method") == "weight_x_freight" and weight_f:
+        total_kg = float(ship_meta.get("total_kg") or (weight_f * qty))
+        freight_derivation = (
+            f"Freight derivation: {weight_disp} × qty {qty} = {total_kg:g} kg × "
+            f"${float(duty_bundle['freight_usd_per_kg_mid']):.0f}/kg mid "
+            f"→ {ship_disp} (FX USD→{local}"
+            + (
+                "; static FX fallback, not a live rate"
+                if fx_fallback_visible
+                else ""
+            )
+            + ")"
+        )
+    elif foreign:
+        freight_derivation = (
+            f"Freight derivation: {ship_meta.get('freight_assumption') or freight_disp}"
+            f" → {ship_disp}"
+        )
+    else:
+        freight_derivation = "Freight derivation: 0 (domestic)"
 
     duty_assumption = (
         (
-            f"Duty: {int(duty_mid * 100)}% mid "
+            f"Duty: {int(duty_mid * 100)}% mid on CIF duty base {duty_base_disp} "
+            f"(goods {line_disp} + freight {ship_disp}) "
             f"({int(duty_low * 100)}–{int(duty_high * 100)}% band) — "
             f"{duty_meta.get('label') or 'assumption, not official customs'}"
             + (" — estimated, not a tariff lookup" if duty_fallback_visible else "")
@@ -628,12 +715,30 @@ def compute_landed_cost(
         if foreign
         else "Duty: 0% (domestic listing)"
     )
+    fx_assumption = None
+    if fx_fallback_visible:
+        fx_assumption = (
+            "FX: static fallback rate, not a live rate "
+            "(estimated, not a live FX quote)"
+        )
+    elif isinstance(fx_meta_primary, dict) and fx_meta_primary.get("source") == "same_currency":
+        fx_assumption = f"FX: same currency ({unit_cur})"
+    elif isinstance(fx_meta_primary, dict):
+        fr = fx_meta_primary.get("from") if isinstance(fx_meta_primary.get("from"), dict) else {}
+        to = fx_meta_primary.get("to") if isinstance(fx_meta_primary.get("to"), dict) else {}
+        fx_assumption = (
+            f"FX: {unit_cur}→{local} via live quote "
+            f"(as of {fr.get('as_of') or to.get('as_of') or 'n/a'}; "
+            f"source {fr.get('source') or to.get('source') or fx_meta_primary.get('source')})"
+        )
+
     assumptions = [
         f"Weight: {weight_disp}",
         f"Freight: {freight_disp} (share {int(freight_share * 100)}% of mid total)",
+        freight_derivation,
         duty_assumption,
         (
-            f"Import VAT: {int(tax_rate * 100)}% on CIF+duty+freight"
+            f"Import VAT: {int(tax_rate * 100)}% on goods+freight+duty ({vat_base_disp})"
             + (
                 " (buyer VAT-registered — omitted)"
                 if duty_bundle.get("buyer_vat_registered") and foreign
@@ -660,6 +765,8 @@ def compute_landed_cost(
             else "Primary unit from listing card — snippet/unverified tiers not applied."
         ),
     ]
+    if fx_assumption:
+        assumptions.insert(3, fx_assumption)
     if unconfirmed_tier_note:
         assumptions.append(unconfirmed_tier_note)
     if moq_not_met:
@@ -730,15 +837,29 @@ def compute_landed_cost(
         "moq_assumption": moq_assumption,
         "moq_source": moq_source,
         "unit_price": unit_disp,
+        "unit_price_raw": str(listing.get("price") or ""),
+        "unit_price_parsed_currency": unit_cur,
+        "unit_price_source": str(listing.get("price_source") or tier_label),
         "unit_price_local": _fmt(unit_local, local),
         "line_total": line_disp,
+        "goods_amount": round(line_local, 2),
         "duty_rate": duty_mid,
         "duty_rate_low": duty_low,
         "duty_rate_high": duty_high,
         "duty_assumption": duty_assumption,
+        "duty_base": duty_base_disp,
+        "duty_base_amount": round(duty_base_mid, 2),
         "duty_amount": duty_disp,
+        "duty_amount_value": round(duty_amt_mid, 2),
+        "vat_base": vat_base_disp,
+        "vat_base_amount": round(vat_base_mid, 2) if foreign else 0.0,
         "duty_fallback": duty_fallback_visible,
         "duty_fallback_label": "estimated, not a tariff lookup" if duty_fallback_visible else None,
+        "fx_fallback": fx_fallback_visible,
+        "fx_fallback_label": (
+            "estimated, not a live FX quote" if fx_fallback_visible else None
+        ),
+        "freight_derivation": freight_derivation,
         "origin_country": origin,
         "is_import": foreign,
         "domestic_vat_rate": domestic_vat_rate,
@@ -783,7 +904,7 @@ def compute_landed_cost(
         "duty_meta": duty_bundle.get("duty_meta"),
         "sales_tax_meta": duty_bundle.get("sales_tax_meta"),
         "freight_meta": duty_bundle.get("freight_meta"),
-        "fx_meta": fx_trail[-1] if fx_trail else None,
+        "fx_meta": fx_meta_primary,
         "profile_id": duty_bundle.get("profile_id"),
         "trade_zone": duty_bundle.get("trade_zone"),
         "delivery_fee": delivery_fee,

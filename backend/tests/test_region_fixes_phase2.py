@@ -1,6 +1,8 @@
 """Regression suite for region / landed-cost / Skip / prompt fixes."""
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from app.agents.deal_finder_prompts import (
@@ -127,6 +129,67 @@ def test_uk_eu_origin_treated_as_import():
     )
     assert ca["is_import"] is True
     assert ca["duty_rate_mid"] == 0.12
+    assert ca["sales_tax_rate"] == 0.2  # UK import VAT
+    landed = compute_landed_cost(
+        listing,
+        quantity=50,
+        local_currency="GBP",
+        location="London, United Kingdom",
+        country_code="uk",
+        origin_country="EU",
+        buyer_vat_registered=False,
+    )
+    assert landed is not None
+    assert landed["is_import"] is True
+    assert landed["duty_rate"] == 0.12
+    assert landed["sales_tax_rate"] == 0.2
+    assert landed["domestic_vat_rate"] in (0, 0.0)
+    assert float(landed["estimated_total_amount"]) > 0
+
+
+def test_uk_us_origin_treated_as_import():
+    uk = load_profile("uk")
+    assert import_origin_group(uk, "US") == "import"
+    listing = _uk_listing(
+        "US",
+        link="https://www.amazon.com/dp/B00TEST",
+        price="$12.00",
+    )
+    ca = shared_cost_assumptions(
+        profile=uk, listing=listing, local_currency="GBP", origin_country="US"
+    )
+    assert ca["is_import"] is True
+    assert ca["duty_rate_mid"] == 0.12
+    assert ca["sales_tax_rate"] == 0.2
+    landed = compute_landed_cost(
+        listing,
+        quantity=100,
+        local_currency="GBP",
+        location="London, United Kingdom",
+        country_code="uk",
+        origin_country="US",
+        buyer_vat_registered=False,
+    )
+    assert landed is not None
+    assert landed["is_import"] is True
+    assert landed["origin_country"] in ("US", "USA", "UNITED STATES") or landed[
+        "origin_country"
+    ] == "US"
+    assert landed["duty_rate"] == 0.12
+    assert landed["duty_fallback"] is True
+    assert landed["sales_tax_rate"] == 0.2
+    assert landed["domestic_vat_in_mid"] is False
+    assert float(landed["estimated_total_amount"]) > float(
+        _parse_goods_approx(landed)
+    )
+
+
+def _parse_goods_approx(landed: dict) -> float:
+    """Goods line ≈ mid before duty/freight/VAT — use line_total parse."""
+    import re
+
+    m = re.search(r"([\d,]+(?:\.\d+)?)", str(landed.get("line_total") or ""))
+    return float(m.group(1).replace(",", "")) if m else 0.0
 
 
 def test_table_brief_agents_same_landed_mid():
@@ -199,12 +262,179 @@ def test_uk_prompts_contain_no_pakistan_karachi_cra():
         "regulatory_focus": load_profile("uk").get("regulatory_focus") or "",
     }
     blobs = [
-        marketplace_addon(None, None, uk_ctx),
-        thrift_advocate_prompt(location_context=uk_ctx),
-        risk_analyst_prompt(location_context=uk_ctx),
-        deal_judge_prompt(location_context=uk_ctx),
+        marketplace_addon(None, None, uk_ctx, buying_mode="bulk", quantity=100),
+        thrift_advocate_prompt(location_context=uk_ctx, buying_mode="bulk", quantity=100),
+        risk_analyst_prompt(location_context=uk_ctx, buying_mode="bulk", quantity=100),
+        deal_judge_prompt(location_context=uk_ctx, buying_mode="bulk", quantity=100),
     ]
-    banned = ("Pakistan", "Karachi", "Consumer Rights Act")
+    banned = (
+        "Pakistan",
+        "Karachi",
+        "Lahore",
+        "Consumer Rights Act",
+        "Rs 1",
+    )
     for blob in blobs:
         for word in banned:
             assert word not in blob, f"Found {word!r} in prompt"
+        assert not re.search(r"\bRs\.?\b", blob), "Found Rs token in UK prompt"
+        assert not re.search(r"\bPKR\b", blob), "Found PKR in UK prompt"
+        # Trade Assurance may appear only as a forbidden-unless-sourced example
+        for m in re.finditer(r"Trade Assurance", blob):
+            window = blob[max(0, m.start() - 80) : m.end() + 40]
+            assert "Do NOT name" in window or "SOURCED-FACTS" in blob[max(0, m.start() - 400) : m.start()], (
+                f"Trade Assurance outside sourced-facts forbid list: {window!r}"
+            )
+
+
+def test_bulk_addon_fx_example_is_currency_neutral():
+    from app.agents.deal_finder_prompts import bulk_buying_addon
+
+    text = bulk_buying_addon(buying_mode="bulk", quantity=100)
+    assert "Rs 1" not in text
+    assert not re.search(r"\bRs\.?\b", text)
+    assert "1:1 local currency" in text or "never treat a USD amount as 1:1" in text
+
+
+def test_sourced_facts_rule_bans_unsourced_trade_assurance():
+    uk_ctx = {
+        "trade_zone": "UK",
+        "currency": "GBP",
+        "region_profile_id": "uk",
+        "regulatory_focus": load_profile("uk").get("regulatory_focus") or "",
+    }
+    blob = marketplace_addon(None, None, uk_ctx, buying_mode="bulk", quantity=100)
+    assert "SOURCED-FACTS RULE" in blob
+    assert "Trade Assurance" in blob  # named as forbidden-unless-sourced example
+    assert "Money Back Guarantee" in blob
+    # The rule must forbid inventing those brands without a listing/profile fact
+    assert "unless that exact" in blob.lower() or "unless that exact phrase" in blob
+
+
+def test_scrub_unsourced_trade_assurance_when_not_in_listings():
+    from app.utils.sourced_facts import scrub_unsourced_coverage_brands, scrub_agent_texts
+
+    prose = (
+        "Pay only via Alibaba Trade Assurance or a credit-card that permits chargebacks."
+    )
+    cleaned = scrub_unsourced_coverage_brands(prose, sourced_blob="phone case Alibaba CN")
+    assert "Trade Assurance" not in cleaned
+    assert "on-platform payment" in cleaned.lower() or "chargeback" in cleaned.lower()
+
+    # Keep when listing facts mention it
+    kept = scrub_unsourced_coverage_brands(
+        prose, sourced_blob="Seller offers Trade Assurance on this order"
+    )
+    assert "Trade Assurance" in kept
+
+    scrubbed = scrub_agent_texts(
+        {"thrift_advocate": prose, "risk_analyst": "ok"},
+        listings=[{"title": "Case", "snippet": "MOQ 100"}],
+    )
+    assert "Trade Assurance" not in scrubbed["thrift_advocate"]
+    assert scrubbed["risk_analyst"] == "ok"
+
+
+def test_uk_cif_duty_base_includes_freight():
+    """
+    CIF duty: duty_base = goods + freight.
+    goods 1100, freight 118, duty 12% → duty 146.16, VAT 272.83, landed 1636.99.
+    """
+    from unittest.mock import patch
+
+    listing = {
+        "title": "CIF fixture phone case",
+        "price": "£11.00",
+        "link": "https://www.alibaba.com/product-detail/cif-fixture.html",
+        "supplier_origin": "CN",
+        "currency": "GBP",
+        "price_source": "page",
+        "is_product_page": True,
+        "package_weight_kg": 0.118,  # 100 × 0.118 = 11.8 kg; overridden via ship band mock
+        "package_weight_source": "page",
+    }
+
+    def _fake_ship(**kwargs):
+        return (
+            {"low": 118.0, "mid": 118.0, "high": 118.0},
+            {
+                "method": "weight_x_freight",
+                "freight_assumption": "fixture freight 118",
+                "total_kg": 11.8,
+                "weight_kg_unit": 0.118,
+                "weight_from_page": True,
+            },
+        )
+
+    with patch("app.utils.landed_cost._shipping_band", side_effect=_fake_ship):
+        # Force unit currency GBP so goods = 11 × 100 = 1100 with no FX
+        with patch(
+            "app.utils.landed_cost._detect_currency",
+            return_value="GBP",
+        ):
+            landed = compute_landed_cost(
+                listing,
+                quantity=100,
+                local_currency="GBP",
+                location="London, United Kingdom",
+                country_code="uk",
+                origin_country="CN",
+                buyer_vat_registered=False,
+            )
+    assert landed is not None
+    assert abs(float(landed["goods_amount"]) - 1100.0) < 0.02
+    assert abs(float(landed["duty_base_amount"]) - 1218.0) < 0.02  # 1100+118
+    assert abs(float(landed["duty_amount_value"]) - 146.16) < 0.02
+    assert abs(float(landed["vat_base_amount"]) - 1364.16) < 0.02
+    # VAT 20% of 1364.16 = 272.832
+    assert abs(float(landed["estimated_total_amount"]) - 1636.99) < 0.02
+    assert "duty base" in (landed.get("formula") or "").lower() or "CIF duty base" in (
+        landed.get("formula") or ""
+    )
+    assert "Freight derivation:" in "\n".join(landed.get("assumptions") or [])
+
+
+def test_serp_dollar_price_under_uk_request_is_usd_not_gbp():
+    """SERP '$11' (or factory £ rewrite) under a UK/GBP request must FX-convert, not same_currency."""
+    listing = {
+        "title": "Alcantara Phone Case",
+        "price": "$11.00",
+        "link": "https://www.alibaba.com/product-detail/phone-case_123.html",
+        "supplier_origin": "CN",
+        "currency": "GBP",  # wrongly annotated as buyer currency
+        "price_source": "serp",
+        "is_product_page": True,
+        "package_weight_kg": 0.15,
+        "package_weight_source": "assumed",
+    }
+    landed = compute_landed_cost(
+        listing,
+        quantity=100,
+        local_currency="GBP",
+        location="London, United Kingdom",
+        country_code="uk",
+        origin_country="CN",
+        buyer_vat_registered=False,
+    )
+    assert landed is not None
+    assert landed["unit_price_parsed_currency"] == "USD"
+    assert landed["unit_price_raw"] == "$11.00"
+    fx = landed.get("fx_meta") or {}
+    assert fx.get("source") != "same_currency"
+    # Goods in GBP must be FX'd (~11 / ~1.27 ≈ 8.66), not 1100
+    assert float(landed["goods_amount"]) < 1000.0
+
+    # Factory host with £ display (buyer-locale scrape bug) still treated as USD
+    rewritten = dict(listing)
+    rewritten["price"] = "£11.00"
+    landed2 = compute_landed_cost(
+        rewritten,
+        quantity=100,
+        local_currency="GBP",
+        location="London, UK",
+        country_code="uk",
+        origin_country="CN",
+    )
+    assert landed2 is not None
+    assert landed2["unit_price_parsed_currency"] == "USD"
+    assert (landed2.get("fx_meta") or {}).get("source") != "same_currency"
