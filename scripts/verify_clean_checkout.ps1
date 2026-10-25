@@ -195,12 +195,18 @@ try {
   $passed = $true
 }
 finally {
-  if ($backendProc -and -not $backendProc.HasExited) {
-    Stop-Process -Id $backendProc.Id -Force -ErrorAction SilentlyContinue
+  foreach ($proc in @($backendProc, $marketProc)) {
+    if ($proc -and -not $proc.HasExited) {
+      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+    }
   }
-  if ($marketProc -and -not $marketProc.HasExited) {
-    Stop-Process -Id $marketProc.Id -Force -ErrorAction SilentlyContinue
-  }
+  # Also stop child node/python that may hold worktree files open
+  Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and $_.CommandLine.Contains($WorktreePath) } |
+    ForEach-Object {
+      Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+  Start-Sleep -Seconds 1
   if (-not $KeepWorktree) {
     Set-Location $RepoRoot
     git worktree remove --force $WorktreePath 2>$null | Out-Null
