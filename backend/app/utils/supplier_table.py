@@ -63,6 +63,8 @@ def landed_mid_display(row: dict[str, Any]) -> str:
     label = str(mid)
     if landed.get("duty_fallback"):
         label = f"{label} (estimated, not a tariff lookup)"
+    if landed.get("fx_fallback"):
+        label = f"{label} (estimated, not a live FX quote)"
     return label
 
 
@@ -200,15 +202,26 @@ def build_brief_export_text(
         lines.append("Landed cost (checkable):")
         mid = landed.get("estimated_total")
         if mid:
-            suffix = (
-                " (estimated, not a tariff lookup)"
-                if landed.get("duty_fallback")
-                else ""
-            )
+            suffix = ""
+            if landed.get("duty_fallback"):
+                suffix += " (estimated, not a tariff lookup)"
+            if landed.get("fx_fallback"):
+                suffix += " (estimated, not a live FX quote)"
             lines.append(f"  Mid: {mid}{suffix}")
         if landed.get("formula"):
             lines.append(f"  Formula: {landed.get('formula')}")
-        for a in (landed.get("assumptions") or [])[:6]:
+        # Prefer weight / freight-derivation / duty-base lines in the brief
+        assumptions = list(landed.get("assumptions") or [])
+        prefer = [
+            a
+            for a in assumptions
+            if re.search(
+                r"^(Weight:|Freight|Freight derivation:|Duty:|FX:|Import VAT:)",
+                str(a),
+            )
+        ]
+        rest = [a for a in assumptions if a not in prefer]
+        for a in (prefer + rest)[:8]:
             lines.append(f"  - {a}")
     if supplier_table:
         lines.append("")
