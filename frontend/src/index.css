@@ -1,13 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg-page: #08090b;
-  --ink: #e9edf2;
-  --accent: #5ba3d9;
+  --bg-page: #cbb1eb;
+  --ink: #0a0a0a;
+  --accent: #daff3f;
+  --coral: #e34234;
+  --lime: #daff3f;
+  --lavender: #cbb1eb;
 }
 
 * {
@@ -24,26 +27,27 @@ body,
 body {
   background-color: var(--bg-page);
   color: var(--ink);
-  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--lavender);
+  border-left: 2px solid var(--ink);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
-  border-radius: 99px;
+  background: var(--ink);
+  border-radius: 0;
 }
 
 @keyframes fadeSlideUp {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -52,14 +56,14 @@ body {
 }
 
 .animate-fade-slide-up {
-  animation: fadeSlideUp 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: fadeSlideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 .bg-page {
   background-color: var(--bg-page);
 }
 
-.bg-red-500\/8 { background-color: rgb(239 68 68 / 0.08); }
-.bg-amber-500\/8 { background-color: rgb(245 158 11 / 0.08); }
-.bg-emerald-500\/8 { background-color: rgb(16 185 129 / 0.08); }
-.bg-white\/3 { background-color: rgb(255 255 255 / 0.03); }
+.bg-red-500\/8 { background-color: rgb(227 66 52 / 0.12); }
+.bg-amber-500\/8 { background-color: rgb(218 255 63 / 0.2); }
+.bg-emerald-500\/8 { background-color: rgb(218 255 63 / 0.18); }
+.bg-white\/3 { background-color: rgb(255 255 255 / 0.85); }

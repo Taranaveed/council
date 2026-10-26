@@ -32,7 +32,7 @@ export function useDebateStream() {
         body: JSON.stringify({ 
           thesis, 
           max_rounds: maxRounds,
-          model: "llama-3.3-70b-versatile" 
+          model: "openai/gpt-oss-120b" 
         }),
       });
       const initData = await initRes.json();

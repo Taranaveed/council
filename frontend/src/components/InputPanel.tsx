@@ -131,7 +131,7 @@ export function InputPanel({ onSubmit, loading }: InputPanelProps) {
             )}
           </button>
           <p className="text-center text-xs text-slate-600 mt-4">
-            Powered by Groq · llama-3.3-70b-versatile
+            Powered by Groq · gpt-oss-120b
           </p>
         </div>
       </form>

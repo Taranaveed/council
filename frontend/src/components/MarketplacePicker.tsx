@@ -98,32 +98,32 @@ export function MarketplacePicker({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-semibold text-[#3d4f6f]">Where to shop</p>
-        {loading && <span className="text-[10px] text-[#3d4f6f]/70">Updating for your city…</span>}
+        <p className="text-sm font-semibold text-[#5c6570]">Where to shop</p>
+        {loading && <span className="text-[10px] text-[#5c6570]/70">Updating for your city…</span>}
       </div>
 
       {context?.trade_zone && (
-        <p className="text-[11px] text-[#3d4f6f] mb-2 font-medium">
-          Area: <span className="text-[#0b1b3a]">{context.trade_zone}</span>
+        <p className="text-[11px] text-[#5c6570] mb-2 font-medium">
+          Area: <span className="text-[#1a1d21]">{context.trade_zone}</span>
           {context.currency ? (
             <>
               {' '}
-              · Currency: <span className="text-[#0b1b3a]">{context.currency}</span>
+              · Currency: <span className="text-[#1a1d21]">{context.currency}</span>
             </>
           ) : null}
           {countryCode ? (
             <>
               {' '}
-              · Country: <span className="text-[#0b1b3a]">{countryCode.toUpperCase()}</span>
+              · Country: <span className="text-[#1a1d21]">{countryCode.toUpperCase()}</span>
             </>
           ) : null}
         </p>
       )}
 
-      {error && <p className="text-xs text-[#ff5a5f] font-semibold mb-2">{error}</p>}
+      {error && <p className="text-xs text-[#c45c4a] font-semibold mb-2">{error}</p>}
 
       {!loading && options.length === 0 && location.trim().length >= 2 && (
-        <p className="text-xs text-[#3d4f6f] mb-2">Type a clearer city name to see shopping sites.</p>
+        <p className="text-xs text-[#5c6570] mb-2">Type a clearer city name to see shopping sites.</p>
       )}
 
       <div className="space-y-2">
@@ -134,21 +134,21 @@ export function MarketplacePicker({
               key={opt.slug}
               type="button"
               onClick={() => onChange(opt.slug, opt)}
-              className={`w-full text-left border px-3 py-2.5 transition ${
+              className={`w-full text-left border px-3 py-2.5 transition rounded-md ${
                 isSelected
-                  ? 'border-[#5BA3D9]/50 bg-[#5BA3D9]/12 shadow-none'
-                  : 'border-[rgba(11,27,58,0.1)] bg-white/60 hover:border-[rgba(11,27,58,0.22)]'
+                  ? 'border-[rgba(27,95,90,0.4)] bg-[rgba(27,95,90,0.08)] shadow-none'
+                  : 'border-[rgba(26,29,33,0.1)] bg-white hover:border-[rgba(26,29,33,0.22)]'
               }`}
             >
               <span className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-[#0b1b3a]">{opt.name}</span>
+                <span className="text-sm font-semibold text-[#1a1d21]">{opt.name}</span>
                 {opt.currency ? (
-                  <span className="text-[10px] font-semibold text-[#3d4f6f] border border-[rgba(11,27,58,0.12)] px-1.5 py-0.5">
+                  <span className="text-[10px] font-semibold text-[#5c6570] border border-[rgba(26,29,33,0.12)] px-1.5 py-0.5">
                     {opt.currency}
                   </span>
                 ) : null}
               </span>
-              <span className="block text-[11px] text-[#3d4f6f] mt-0.5 font-medium">{opt.hint}</span>
+              <span className="block text-[11px] text-[#5c6570] mt-0.5 font-medium">{opt.hint}</span>
             </button>
           );
         })}

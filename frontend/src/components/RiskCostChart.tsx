@@ -119,12 +119,12 @@ export function RiskCostChart({ alternatives = [], riskScore, verdict }: Props) 
       >
         <defs>
           <radialGradient id="riskPlotAvoid" cx="20%" cy="20%" r="70%">
-            <stop offset="0%" stopColor="#e07060" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#e07060" stopOpacity="0" />
+            <stop offset="0%" stopColor="#c45c4a" stopOpacity="0.14" />
+            <stop offset="100%" stopColor="#c45c4a" stopOpacity="0" />
           </radialGradient>
           <radialGradient id="riskPlotSafe" cx="85%" cy="85%" r="55%">
-            <stop offset="0%" stopColor="#5ba3d9" stopOpacity="0.14" />
-            <stop offset="100%" stopColor="#5ba3d9" stopOpacity="0" />
+            <stop offset="0%" stopColor="#0f766e" stopOpacity="0.14" />
+            <stop offset="100%" stopColor="#0f766e" stopOpacity="0" />
           </radialGradient>
         </defs>
 
@@ -134,8 +134,8 @@ export function RiskCostChart({ alternatives = [], riskScore, verdict }: Props) 
           width={plotW}
           height={plotH}
           rx={8}
-          fill="#0e1218"
-          stroke="rgba(255,255,255,0.1)"
+          fill="#f7f8fa"
+          stroke="rgba(26,29,33,0.12)"
           strokeWidth={1}
         />
         <rect
@@ -158,7 +158,7 @@ export function RiskCostChart({ alternatives = [], riskScore, verdict }: Props) 
         <text
           x={pad.left + 10}
           y={pad.top + 18}
-          fill="#e07060"
+          fill="#c45c4a"
           fontSize={9}
           fontWeight={600}
           fontFamily="IBM Plex Mono, ui-monospace, monospace"
@@ -171,9 +171,9 @@ export function RiskCostChart({ alternatives = [], riskScore, verdict }: Props) 
           x={pad.left + plotW / 2}
           y={h - 12}
           textAnchor="middle"
-          fill="#8b949e"
+          fill="#5c6570"
           fontSize={10}
-          fontFamily="IBM Plex Sans, system-ui, sans-serif"
+          fontFamily="Source Sans 3, Segoe UI, system-ui, sans-serif"
         >
           Cost →
         </text>
@@ -181,24 +181,24 @@ export function RiskCostChart({ alternatives = [], riskScore, verdict }: Props) 
           x={14}
           y={pad.top + plotH / 2}
           textAnchor="middle"
-          fill="#8b949e"
+          fill="#5c6570"
           fontSize={10}
-          fontFamily="IBM Plex Sans, system-ui, sans-serif"
+          fontFamily="Source Sans 3, Segoe UI, system-ui, sans-serif"
           transform={`rotate(-90 14 ${pad.top + plotH / 2})`}
         >
           Risk →
         </text>
-        <text x={pad.left} y={pad.top - 10} fill="#8b949e" fontSize={9}>
+        <text x={pad.left} y={pad.top - 10} fill="#5c6570" fontSize={9}>
           High risk
         </text>
-        <text x={pad.left} y={h - pad.bottom + 16} fill="#8b949e" fontSize={9}>
+        <text x={pad.left} y={h - pad.bottom + 16} fill="#5c6570" fontSize={9}>
           Low cost
         </text>
         <text
           x={w - pad.right}
           y={h - pad.bottom + 16}
           textAnchor="end"
-          fill="#8b949e"
+          fill="#5c6570"
           fontSize={9}
         >
           High cost
@@ -211,7 +211,7 @@ export function RiskCostChart({ alternatives = [], riskScore, verdict }: Props) 
               x2={pad.left + plotW}
               y1={toY(t)}
               y2={toY(t)}
-              stroke="rgba(255,255,255,0.06)"
+              stroke="rgba(26,29,33,0.08)"
               strokeDasharray="4 4"
             />
             <line
@@ -219,7 +219,7 @@ export function RiskCostChart({ alternatives = [], riskScore, verdict }: Props) 
               x2={toX(t)}
               y1={pad.top}
               y2={pad.top + plotH}
-              stroke="rgba(255,255,255,0.06)"
+              stroke="rgba(26,29,33,0.08)"
               strokeDasharray="4 4"
             />
           </g>
@@ -236,17 +236,17 @@ export function RiskCostChart({ alternatives = [], riskScore, verdict }: Props) 
                 cy={cy}
                 r={7}
                 fill={p.color}
-                stroke="#0e1218"
+                stroke="#ffffff"
                 strokeWidth={2}
               />
               <text
                 x={cx}
                 y={cy - 18}
                 textAnchor="middle"
-                fill="#e9edf2"
+                fill="#1a1d21"
                 fontSize={10}
                 fontWeight={600}
-                fontFamily="IBM Plex Sans, system-ui, sans-serif"
+                fontFamily="Source Sans 3, Segoe UI, system-ui, sans-serif"
               >
                 {p.label}
               </text>

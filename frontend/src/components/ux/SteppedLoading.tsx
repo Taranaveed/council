@@ -6,6 +6,6 @@ type Props = {
   intervalMs?: number;
 };
 
-export function SteppedLoading({ steps, intervalMs = 9000 }: Props) {
+export function SteppedLoading({ steps, intervalMs = 6500 }: Props) {
   return <AgentTheater steps={steps} intervalMs={intervalMs} />;
 }

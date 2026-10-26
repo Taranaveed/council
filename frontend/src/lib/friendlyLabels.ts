@@ -23,6 +23,9 @@ export function friendlyExpertName(key: string): string {
 export function friendlyVerdict(raw: unknown): string {
   const v = String(raw || '').toUpperCase();
   if (v === 'BUY') return 'Buy';
-  if (v === 'PASS') return 'Skip';
+  if (v === 'MAYBE') return 'Maybe, verify';
+  if (v === 'PASS' || v === 'SKIP') return 'Skip';
+  if (v === 'NO_MATCH') return 'Confirm on seller pages';
+  if (v === 'REVIEW') return 'Confirm on seller pages';
   return String(raw || '—');
 }

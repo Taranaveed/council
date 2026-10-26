@@ -127,7 +127,7 @@ This script:
 2. Copies local `backend/.env` / `market-service/.env` if present (never committed)
 3. Installs backend + market-service deps
 4. Boots both services on free ports
-5. Runs `pytest`, `npm test`, and `python scripts/smoke_deal_finder_region.py --fixtures`
+5. Runs `pytest`, market-service `npm test`, fixture smoke, and `frontend` `npm ci && npm run build`
 6. Tears down the worktree
 
 Deterministic API smoke (no live search):

@@ -17,7 +17,13 @@ function cleanBase(url: unknown): string {
     .replace(/\/+$/, '');
 }
 
-const DEFAULT_API = cleanBase(import.meta.env.VITE_API_URL) || 'http://localhost:8000';
+const DEFAULT_API = cleanBase(import.meta.env.VITE_API_URL) || 'http://localhost:8001';
+
+if (import.meta.env.PROD && /localhost|127\.0\.0\.1/.test(DEFAULT_API)) {
+  console.error(
+    'VITE_API_URL is missing or points at localhost in this production build. Set it to the public API origin.',
+  );
+}
 
 let cachedBase: string | null = null;
 let cachedRegion: string | null = null;

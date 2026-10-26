@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import '../styles/bright-dash.css';
 import { friendlyExpertName } from '../lib/friendlyLabels';
@@ -6,7 +5,6 @@ import { DebateProse, ExpandableDebate } from '../lib/debateProse';
 import { AgentTheater } from './ux/AgentTheater';
 
 type Props = {
-  role: 'business' | 'buyer';
   email?: string | null;
   onLogout: () => void;
   aside: ReactNode;
@@ -24,21 +22,18 @@ function BentoMark() {
   );
 }
 
-export function DashboardShell({ role, email, onLogout, aside, children }: Props) {
-  const toolsLabel = role === 'business' ? 'Seller council' : 'Buyer council';
-
+export function DashboardShell({ email, onLogout, aside, children }: Props) {
   return (
-    <div className={`dash-proto dash-proto--${role}`}>
+    <div className="dash-proto dash-proto--buyer">
       <div className="dash-proto__mesh" aria-hidden />
 
       <header className="dash-proto__header">
         <div className="dash-proto__brand">
           <BentoMark />
-          <span className="dash-proto__brand-name">{toolsLabel}</span>
+          <span className="dash-proto__brand-name">Council</span>
         </div>
         <nav className="dash-proto__nav">
           {email ? <span className="dash-proto__email">{email}</span> : null}
-          <Link to="/role">Change path</Link>
           <button type="button" onClick={onLogout}>
             Sign out
           </button>
@@ -53,7 +48,7 @@ export function DashboardShell({ role, email, onLogout, aside, children }: Props
   );
 }
 
-/** Editorial desk title — serif headline + quiet subtitle (Seller launch desk pattern). */
+/** Editorial desk title — serif headline + quiet subtitle. */
 export function DeskHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <header className="dash-desk">
@@ -76,23 +71,13 @@ export function DashEmpty({ title, body }: { title: string; body: string }) {
   );
 }
 
-const COUNCIL_AVATARS = [
-  { color: '#3d6f99', label: 'Agent 1' },
-  { color: '#b8734f', label: 'Agent 2' },
-  { color: '#8a5068', label: 'Agent 3' },
-];
+const COUNCIL_ROLES = [
+  { key: 'deal', label: 'Best Deal', short: 'Deal' },
+  { key: 'risk', label: 'Risk', short: 'Risk' },
+  { key: 'fit', label: 'Fit', short: 'Fit' },
+] as const;
 
-function RobotFace() {
-  return (
-    <span className="agents-empty__robot" aria-hidden>
-      <span className="agents-empty__eye agents-empty__eye--l" />
-      <span className="agents-empty__eye agents-empty__eye--r" />
-      <span className="agents-empty__mouth" />
-    </span>
-  );
-}
-
-/** Centered empty state — stacked agent avatars + short council pitch. */
+/** Empty state — brutal council tiles (Best Deal / Risk / Fit). */
 export function AgentsEmpty({
   headline = 'Multiple agents, one council',
   body = 'Fill the brief on the left, then run the pack.',
@@ -104,16 +89,12 @@ export function AgentsEmpty({
 }) {
   return (
     <div className="agents-empty agents-empty--quiet">
-      <div className="agents-empty__stack" aria-hidden>
-        {COUNCIL_AVATARS.map((a) => (
-          <span
-            key={a.label}
-            className="agents-empty__avatar"
-            style={{ background: a.color }}
-            title={a.label}
-          >
-            <RobotFace />
-          </span>
+      <div className="agents-empty__tiles" aria-hidden>
+        {COUNCIL_ROLES.map((role) => (
+          <div key={role.key} className={`agents-empty__tile agents-empty__tile--${role.key}`}>
+            <span className="agents-empty__tile-short">{role.short}</span>
+            <span className="agents-empty__tile-label">{role.label}</span>
+          </div>
         ))}
       </div>
       <h2 className="agents-empty__headline">{headline}</h2>
@@ -123,7 +104,7 @@ export function AgentsEmpty({
   );
 }
 
-const EXPERT_COLORS = ['#5BA3D9', '#7BB8E5', '#C4A574', '#8B949E', '#3D7FAD'];
+const EXPERT_COLORS = ['#1B4D4A', '#3D5A6C', '#8B6914', '#5C6570', '#2A4A6B'];
 
 export function TranscriptBlock({
   transcript,

@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { wakeApi } from '../lib/api';
 import './LoginPage.css';
 
 export function LoginPage() {
-  const { login, register } = useAuth();
+  const { login, register, token, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -25,13 +25,31 @@ export function LoginPage() {
     };
   }, []);
 
+  if (authLoading) {
+    return (
+      <div className="login-proto">
+        <main className="login-proto__main">
+          <p className="login-proto__tagline">Opening…</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (token) {
+    return <Navigate to="/buyer" replace />;
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setBusy(true);
     try {
-      const user = mode === 'login' ? await login(email, password) : await register(email, password);
-      navigate(user.role ? (user.role === 'business' ? '/business' : '/buyer') : '/role');
+      if (mode === 'login') {
+        await login(email, password);
+      } else {
+        await register(email, password);
+      }
+      navigate('/buyer');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -59,7 +77,7 @@ export function LoginPage() {
             <span>Council</span>
           </h1>
           <p className="login-proto__tagline">
-            Multiple agents. One clear call — on price, buyers, or the deal in front of you.
+            Should you reorder? Live listings, checkable landed math, and a Buy / Maybe / Skip you can audit.
           </p>
         </header>
 

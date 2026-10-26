@@ -99,15 +99,15 @@ export function ActionItems({ alternatives, location, itemName }: Props) {
   if (!linkItems.length && !checklist.length) return null;
 
   return (
-    <div className="bright-panel border border-[rgba(11,27,58,0.1)] bg-white/55 backdrop-blur-sm p-5">
+    <div className="bright-panel border border-[rgba(26,29,33,0.1)] bg-white p-5">
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
-          <ListChecks className="w-4 h-4 text-[#5BA3D9]" aria-hidden />
-          <h3 className="text-sm font-bold text-[#0b1b3a] font-[Space_Grotesk,system-ui,sans-serif]">
+          <ListChecks className="w-4 h-4 text-[#0f766e]" aria-hidden />
+          <h3 className="text-sm font-semibold text-[#1a1d21]">
             Next steps
           </h3>
         </div>
-        <span className="text-[11px] text-[#3d4f6f] font-medium flex items-center gap-1">
+        <span className="text-[11px] text-[#5c6570] font-medium flex items-center gap-1">
           <MapPin className="w-3 h-3" aria-hidden />
           Near {place}
         </span>
@@ -115,19 +115,19 @@ export function ActionItems({ alternatives, location, itemName }: Props) {
 
       <ul className="space-y-2.5">
         {checklist.map((item, i) => (
-          <li key={`c-${i}`} className="text-sm text-[#0b1b3a] flex gap-2 font-medium">
-            <span className="text-[#5BA3D9]">•</span>
+          <li key={`c-${i}`} className="text-sm text-[#1a1d21] flex gap-2 font-medium">
+            <span className="text-[#0f766e]">•</span>
             <span>
               <span className="font-semibold">{item.title}</span>
-              {item.detail ? <span className="text-[#3d4f6f]"> — {item.detail}</span> : null}
+              {item.detail ? <span className="text-[#5c6570]"> — {item.detail}</span> : null}
             </span>
           </li>
         ))}
       </ul>
 
       {linkItems.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-[rgba(11,27,58,0.1)] space-y-2">
-          <p className="text-xs text-[#3d4f6f] uppercase tracking-wide font-bold flex items-center gap-1.5">
+        <div className="mt-4 pt-4 border-t border-[rgba(26,29,33,0.1)] space-y-2">
+          <p className="text-xs text-[#5c6570] uppercase tracking-wide font-semibold flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5" aria-hidden />
             Map search (your location)
           </p>
@@ -137,11 +137,11 @@ export function ActionItems({ alternatives, location, itemName }: Props) {
               href={item.href}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center justify-between gap-3 border border-[#5BA3D9]/30 bg-[#5BA3D9]/10 px-3 py-2.5 text-sm text-[#7BB8E5] hover:bg-[#5BA3D9]/18 transition font-medium"
+              className="flex items-center justify-between gap-3 border border-[rgba(15,118,110,0.25)] bg-[rgba(15,118,110,0.06)] px-3 py-2.5 text-sm text-[#0a5c56] hover:bg-[rgba(15,118,110,0.1)] transition font-medium"
             >
               <span>
-                Open map for <strong className="text-[#0b1b3a]">{item.label}</strong>
-                <span className="block text-[11px] text-[#3d4f6f] mt-0.5">
+                Open map for <strong className="text-[#1a1d21]">{item.label}</strong>
+                <span className="block text-[11px] text-[#5c6570] mt-0.5">
                   Google Maps · {item.mapQuery} near {place}
                 </span>
               </span>

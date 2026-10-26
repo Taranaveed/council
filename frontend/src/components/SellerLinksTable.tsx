@@ -1,4 +1,6 @@
-type SellerRow = {
+import { knownSiteLabel, KNOWN_SITE_HINT } from '../lib/vendorStatus';
+
+export type SellerRow = {
   vendor?: string;
   price?: string;
   title?: string;
@@ -8,7 +10,16 @@ type SellerRow = {
   currency?: string;
   currency_mismatch?: boolean;
   price_local_approx?: string;
+  best_pick?: boolean;
+  pick_reason?: string;
+  supplier_origin?: string;
   note?: string;
+  moq?: number | string | null;
+  price_tiers?: Array<{ min_qty?: number; unit_price?: string }>;
+  counts_as_live_listing?: boolean;
+  is_product_page?: boolean;
+  unit_price_rejected?: string | boolean;
+  rank_reason?: string;
 };
 
 function cleanHttpUrl(value: unknown): string {
@@ -30,6 +41,17 @@ function hostLabel(href: string): string {
   }
 }
 
+function displayPrice(raw: unknown, row?: SellerRow): string {
+  const text = String(raw ?? '').trim();
+  if (row?.counts_as_live_listing === false || row?.is_product_page === false) {
+    return 'price n/a';
+  }
+  if (!text) return 'price n/a';
+  if (/^(see listing|rs\.?|pkr|usd|\$|£|€|inr|₹)[\s,.…]*$/i.test(text)) return 'price n/a';
+  if (/^(n\/?a|na|null|undefined)$/i.test(text)) return 'price n/a';
+  return text;
+}
+
 type Props = {
   rows: SellerRow[];
   emptyMessage?: string;
@@ -37,6 +59,11 @@ type Props = {
   onCopyAll?: () => void;
   copyLabel?: string;
   hint?: string;
+  /** When false (Skip/PASS), never show the Best pick chip. */
+  showBestPick?: boolean;
+  /** Authoritative listing/seller counts from parent — must match tab/status. */
+  listingCount?: number;
+  sellerCount?: number;
 };
 
 /** Live seller / listing links — primary surface for bulk buyers. */
@@ -47,19 +74,25 @@ export function SellerLinksTable({
   onCopyAll,
   copyLabel = 'Copy all links',
   hint = 'Open a seller page to check MOQ, stock, and unit price.',
+  showBestPick = true,
+  listingCount,
+  sellerCount,
 }: Props) {
   if (!rows.length) {
     return <p className="dash-meta">{emptyMessage}</p>;
   }
 
   const linkedCount = rows.filter((r) => cleanHttpUrl(r.link)).length;
+  const showListings = listingCount ?? linkedCount;
+  const showSellers = sellerCount ?? linkedCount;
 
   return (
     <div className="seller-links">
       <div className="seller-links__head">
         <div>
           <p className="seller-links__title">
-            {linkedCount} seller{linkedCount === 1 ? '' : 's'}
+            {showListings} listing{showListings === 1 ? '' : 's'} · {showSellers}{' '}
+            seller{showSellers === 1 ? '' : 's'}
           </p>
           <p className="seller-links__hint">{hint}</p>
         </div>
@@ -73,17 +106,35 @@ export function SellerLinksTable({
       <ul className="seller-links__list">
         {rows.map((row, i) => {
           const href = cleanHttpUrl(row.link);
-          const verified = String(row.vendor_status || '').toLowerCase() === 'verified';
+          const known = knownSiteLabel(row.vendor_status);
           const foreign = Boolean(row.currency_mismatch);
           const host = href ? hostLabel(href) : '';
+          const supplier = /alibaba\.|indiamart\.|made-in-china\.|dhgate\.|globalsources\.|tradeindia\.|aliexpress\.|europages\.|thomasnet\.|faire\./i.test(host);
+          const best = showBestPick && Boolean(row.best_pick);
+          const rankNum =
+            typeof (row as { display_rank?: number }).display_rank === 'number'
+              ? Number((row as { display_rank?: number }).display_rank)
+              : i + 1;
           return (
             <li key={`${row.vendor}-${row.title}-${i}`} className="seller-links__row">
               <div className="seller-links__main">
                 <div className="seller-links__seller">
-                  <span className="seller-links__vendor">{row.vendor || 'Unknown'}</span>
-                  {verified ? (
-                    <span className="seller-links__chip seller-links__chip--ok" title="Verified seller site">
-                      Verified
+                  <span className="seller-links__vendor">
+                    #{rankNum} · {row.vendor || 'Unknown'}
+                  </span>
+                  {best ? (
+                    <span className="seller-links__chip seller-links__chip--ok" title={row.pick_reason || 'Ranked cheap fit for your region — not a guarantee'}>
+                      Best pick
+                    </span>
+                  ) : null}
+                  {supplier && !best ? (
+                    <span className="seller-links__chip seller-links__chip--ok" title="Wholesale supplier">
+                      Supplier
+                    </span>
+                  ) : null}
+                  {known ? (
+                    <span className="seller-links__chip" title={KNOWN_SITE_HINT}>
+                      {known}
                     </span>
                   ) : null}
                   {foreign ? (
@@ -93,6 +144,13 @@ export function SellerLinksTable({
                   ) : null}
                 </div>
                 <p className="seller-links__product">{row.title || (showNote ? row.note : '') || '—'}</p>
+                {showBestPick && (row.rank_reason || row.pick_reason) ? (
+                  <p className="seller-links__note">
+                    {row.rank_reason || row.pick_reason}
+                  </p>
+                ) : !showBestPick && row.rank_reason && /does not match|rejected/i.test(row.rank_reason) ? (
+                  <p className="seller-links__note">{row.rank_reason}</p>
+                ) : null}
                 {showNote && row.note && row.title ? (
                   <p className="seller-links__note">{row.note}</p>
                 ) : null}
@@ -100,7 +158,7 @@ export function SellerLinksTable({
               </div>
 
               <div className="seller-links__aside">
-                <p className="seller-links__price">{row.price || '—'}</p>
+                <p className="seller-links__price">{displayPrice(row.price, row)}</p>
                 {row.price_local_approx ? (
                   <p className="seller-links__approx">{row.price_local_approx}</p>
                 ) : null}
@@ -142,4 +200,3 @@ export function formatSellerLinksClipboard(rows: SellerRow[]): string {
 }
 
 export { cleanHttpUrl };
-export type { SellerRow };
