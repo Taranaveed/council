@@ -464,8 +464,8 @@ def empty_state_note(explanation: dict[str, Any], market_warning: str | None) ->
     quality = explanation.get("data_quality")
     if quality == "empty":
         return (
-            "Live local prices unavailable. Pricing leans on your band and product details — "
-            "not a verified market median. Focus on channels and proof, then re-check prices later."
+            "Live local prices unavailable. This is your stated range — not a market median. "
+            "Do not publish it as a verified fair price until live comps return."
         )
     if quality == "thin_foreign":
         return (

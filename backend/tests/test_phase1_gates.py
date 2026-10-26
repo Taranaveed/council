@@ -762,7 +762,9 @@ class TestAuditGatesABC:
             "implausible_metal": "gold",
             "supplier_origin": "CN",
         }
-        assert compute_landed_cost(bad, quantity=100, local_currency="PKR") is None
+        bad_lc = compute_landed_cost(bad, quantity=100, local_currency="PKR")
+        assert bad_lc is not None and bad_lc.get("hide_landed") is True
+        assert bad_lc.get("estimated_total") is None
 
         good = {
             "title": "Alloy Ring",

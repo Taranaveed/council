@@ -1,0 +1,73 @@
+# Render Blueprint — Council (API + market-service)
+# Dashboard: New → Blueprint → connect https://github.com/Taranaveed/council
+# Existing services (manual): council-api-rbod, council-market
+#
+# Note: services use Root Directory backend/ and market-service/; the full
+# repo is still cloned so shared/ is available to the API.
+
+services:
+  - type: web
+    name: council-market
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: market-service
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: DEFAULT_REGION
+        value: uk
+      - key: DEFAULT_COUNTRY_CODE
+        value: uk
+      - key: DEFAULT_LOCATION
+        value: United Kingdom
+      - key: DEFAULT_LANGUAGE
+        value: en
+      - key: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
+        value: "1"
+      - key: SERPAPI_KEY
+        sync: false
+
+  - type: web
+    name: council-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: MARKET_SERVICE_URL
+        value: https://council-market.onrender.com
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRE_HOURS
+        value: "72"
+      - key: DEFAULT_REGION
+        value: uk
+      - key: DEFAULT_COUNTRY_CODE
+        value: uk
+      - key: DEFAULT_LOCATION
+        value: United Kingdom
+      - key: DEFAULT_LANGUAGE
+        value: en
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: GROQ_FALLBACK_MODEL
+        value: openai/gpt-oss-20b
+      - key: ALERTS_SCHEDULER
+        value: "0"

@@ -46,6 +46,8 @@ def test_unsupported_us_not_supported():
 def test_uk_uk_origin_duty_zero_domestic_vat_line():
     uk = load_profile("uk")
     listing = _uk_listing("UK", link="https://www.argos.co.uk/product/1", price="£20.00")
+    listing["price_type"] = "retail"
+    listing["uk_retail_priced"] = True
     ca = shared_cost_assumptions(
         profile=uk,
         listing=listing,
@@ -72,13 +74,16 @@ def test_uk_uk_origin_duty_zero_domestic_vat_line():
     assert landed["duty_rate"] == 0.0
     assert landed["is_import"] is False
     assert landed["domestic_vat_rate"] == 0.2
-    assert landed["domestic_vat_in_mid"] is True
-    # 10 × 20 = 200 + 20% VAT = 240
-    assert abs(float(landed["estimated_total_amount"]) - 240.0) < 0.02
+    # Retail shelf includes VAT → unregistered cost = price as shown (no +20%)
+    assert landed.get("vat_basis") in ("includes_vat", "unknown")
+    assert abs(float(landed["estimated_total_amount"]) - 200.0) < 0.02
 
 
 def test_uk_uk_origin_vat_reclaimable_when_registered():
     listing = _uk_listing("UK", link="https://www.johnlewis.com/x", price="£20.00")
+    # Mark as retail so shelf-includes-VAT path applies
+    listing["price_type"] = "retail"
+    listing["uk_retail_priced"] = True
     landed = compute_landed_cost(
         listing,
         quantity=10,
@@ -92,9 +97,9 @@ def test_uk_uk_origin_vat_reclaimable_when_registered():
     assert landed["duty_rate"] == 0.0
     assert landed["domestic_vat_reclaimable"] is True
     assert landed["domestic_vat_in_mid"] is False
-    # mid excludes reclaimable domestic VAT → 200
-    assert abs(float(landed["estimated_total_amount"]) - 200.0) < 0.02
-    assert float(landed["domestic_vat_amount"]) == 40.0
+    # includes VAT + registered → cost = 200 / 1.2
+    assert abs(float(landed["estimated_total_amount"]) - (200.0 / 1.2)) < 0.05
+    assert abs(float(landed["domestic_vat_amount"]) - (200.0 - 200.0 / 1.2)) < 0.05
 
 
 def test_uk_cn_origin_is_import_with_fallback_duty():

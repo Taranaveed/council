@@ -14,11 +14,84 @@ from app.core.region_config import resolve_market_locale
 MARKET_SERVICE_URL = os.getenv("MARKET_SERVICE_URL", "http://localhost:3001").rstrip("/")
 # Short TTL: speeds repeat searches without freezing debate (agents get a fresh run_id).
 _CACHE_TTL_SEC = float(os.getenv("MARKET_CACHE_TTL_SEC", "90"))
-_market_cache: dict[str, tuple[float, list[dict[str, Any]], str | None]] = {}
+# value: (ts, listings, warning, listings_raw)
+_market_cache: dict[
+    str, tuple[float, list[dict[str, Any]], str | None, list[dict[str, Any]]]
+] = {}
+# When True, never call live market-service — miss returns empty + warning.
+_fixture_replay: bool = False
+
+
+def set_fixture_replay(enabled: bool, *, ttl_sec: float | None = None) -> None:
+    """Lock market fetches to seeded cache only (benchmark --full --replay)."""
+    global _fixture_replay, _CACHE_TTL_SEC
+    _fixture_replay = bool(enabled)
+    if ttl_sec is not None:
+        _CACHE_TTL_SEC = float(ttl_sec)
+
+
+def clear_market_cache() -> None:
+    _market_cache.clear()
+
+
+def seed_market_cache(
+    *,
+    product_name: str,
+    country_code: str | None = None,
+    preferred_currency: str | None = None,
+    bulk_mode: bool = False,
+    location: str | None = None,
+    listings: list[dict[str, Any]] | None = None,
+    warning: str | None = None,
+    listings_raw: list[dict[str, Any]] | None = None,
+) -> str:
+    """
+    Inject a recorded fixture into the in-process TTL cache.
+    Empty listings are valid (NO_MATCH / zero usable) for fixture replay.
+    """
+    key = market_cache_key(
+        product_name,
+        country_code=country_code,
+        preferred_currency=preferred_currency,
+        bulk_mode=bulk_mode,
+        location=location,
+    )
+    _market_cache[key] = (
+        time.time(),
+        [dict(x) for x in (listings or [])],
+        warning,
+        [dict(x) for x in (listings_raw or [])],
+    )
+    return key
 
 
 def _is_local_market_url() -> bool:
     return bool(re.search(r"localhost|127\.0\.0\.1", MARKET_SERVICE_URL, re.I))
+
+
+def market_cache_key(
+    product_name: str,
+    *,
+    country_code: str | None = None,
+    preferred_currency: str | None = None,
+    bulk_mode: bool = False,
+    location: str | None = None,
+) -> str:
+    """
+    Cache key = query + country locale (gl) + mode + currency.
+    Intentionally ignores city/location string, order quantity, limit, and budget.
+    Qty-dependent MOQ/tier choice must run AFTER cache on the shared payload.
+    """
+    locale = resolve_market_locale(None, country_code or resolve_market_locale(location, None)["gl"])
+    cur = (preferred_currency or "").strip().upper()
+    return "|".join(
+        [
+            (product_name or "").strip().lower(),
+            locale["gl"].lower(),
+            "bulk" if bulk_mode else "retail",
+            cur,
+        ]
+    )
 
 
 def _cache_key(
@@ -31,19 +104,14 @@ def _cache_key(
     quantity: int | None = None,
     budget: str | None = None,
 ) -> str:
-    locale = resolve_market_locale(location, country_code)
-    cur = (preferred_currency or "").strip().upper()
-    return "|".join(
-        [
-            (product_name or "").strip().lower(),
-            locale["location"].lower(),
-            locale["gl"].lower(),
-            str(limit),
-            cur,
-            "bulk" if bulk_mode else "retail",
-            str(quantity or ""),
-            (budget or "").strip().lower(),
-        ]
+    # limit/quantity/budget/location kept in signature for callers; ignored in key.
+    del limit, quantity, budget
+    return market_cache_key(
+        product_name,
+        country_code=country_code,
+        preferred_currency=preferred_currency,
+        bulk_mode=bulk_mode,
+        location=location,
     )
 
 
@@ -67,6 +135,29 @@ async def wake_market_service(timeout_sec: float = 90.0) -> bool:
     return False
 
 
+# Last fetch meta for callers that need SerpApi search counts (benchmark).
+_last_fetch_meta: dict[str, Any] = {
+    "serpapi_searches": 0,
+    "serpapi_stats": {
+        "attempts": 0,
+        "retries": 0,
+        "successes": 0,
+        "failures": 0,
+        "cache_hits": 0,
+        "cache_misses": 0,
+        "cache_unknown": 0,
+    },
+    "serpapi_search_log": [],
+    "from_cache": False,
+    "listings_raw": [],
+    "cache_key": None,
+}
+
+
+def get_last_market_fetch_meta() -> dict[str, Any]:
+    return dict(_last_fetch_meta)
+
+
 async def fetch_market_prices(
     product_name: str,
     location: str | None = None,
@@ -79,20 +170,93 @@ async def fetch_market_prices(
     budget: str | None = None,
     use_cache: bool = True,
 ) -> tuple[list[dict[str, Any]], str | None]:
-    """Call Node market service. Returns (listings, warning)."""
+    """Call Node market service. Returns (listings, warning).
+
+    Order quantity is intentionally NOT sent to market-service: MOQ / tier
+    selection and landed math apply quantity after this cacheable fetch
+    (see compute_landed_cost / select_tier_for_quantity).
+    """
+    global _last_fetch_meta
+    # quantity/budget ignored for fetch+cache (post-cache qty path).
+    _ = quantity, budget
     key = _cache_key(
         product_name, location, country_code, limit, preferred_currency,
-        bulk_mode, quantity, budget,
+        bulk_mode, None, None,
     )
     if use_cache and key in _market_cache:
-        ts, listings, warning = _market_cache[key]
-        if time.time() - ts <= _CACHE_TTL_SEC and listings:
+        ts, listings, warning, cached_raw = _market_cache[key]
+        fresh = time.time() - ts <= _CACHE_TTL_SEC
+        # Empty listings are valid hits under fixture replay (recorded NO_MATCH)
+        # or when a warning / raw payload was stored with the entry.
+        allow_empty = _fixture_replay or warning is not None or bool(cached_raw)
+        if fresh and (listings or allow_empty):
+            _last_fetch_meta = {
+                "serpapi_searches": 0,
+                "serpapi_stats": {
+                    "attempts": 0,
+                    "retries": 0,
+                    "successes": 0,
+                    "failures": 0,
+                    "cache_hits": 1,
+                    "cache_misses": 0,
+                    "cache_unknown": 0,
+                    "client_from_cache": True,
+                },
+                "serpapi_search_log": [
+                    {
+                        "label": "market_client_ttl_cache",
+                        "attempt": 1,
+                        "ok": True,
+                        "cache_hit": True,
+                        "search_id": None,
+                        "status": "client_cache",
+                        "total_time_taken": None,
+                    }
+                ],
+                "from_cache": True,
+                "listings_raw": [dict(x) for x in (cached_raw or [])],
+                "cache_key": key,
+            }
             return [dict(x) for x in listings], warning
 
+    if _fixture_replay:
+        _last_fetch_meta = {
+            "serpapi_searches": 0,
+            "serpapi_stats": {
+                "attempts": 0,
+                "retries": 0,
+                "successes": 0,
+                "failures": 0,
+                "cache_hits": 0,
+                "cache_misses": 1,
+                "cache_unknown": 0,
+                "client_from_cache": False,
+            },
+            "serpapi_search_log": [],
+            "from_cache": False,
+            "listings_raw": [],
+            "cache_key": key,
+        }
+        return [], "Fixture replay: no seeded market cache for this query"
+
     locale = resolve_market_locale(location, country_code)
+    # Country-level location for Serp so city variants share one fetch.
+    try:
+        from app.core.region_profile import get_profile
+
+        prof = get_profile(
+            location=location,
+            country_code=country_code or locale["gl"],
+            currency=preferred_currency,
+        )
+        serp = prof.get("serp") if isinstance(prof.get("serp"), dict) else {}
+        fetch_location = str(serp.get("default_location") or locale["location"])
+    except Exception:
+        fetch_location = locale["location"]
+
     payload: dict[str, Any] = {
         "productName": product_name,
-        "location": locale["location"],
+        "location": fetch_location,
         "countryCode": locale["country_code"],
         "gl": locale["gl"],
         "hl": locale["hl"],
@@ -100,10 +264,7 @@ async def fetch_market_prices(
     }
     if bulk_mode:
         payload["bulkMode"] = True
-        if quantity:
-            payload["quantity"] = int(quantity)
-        if budget and str(budget).strip():
-            payload["budget"] = str(budget).strip()
+        # Do not pass quantity — keeps payload qty-agnostic for cache reuse.
     if preferred_currency and str(preferred_currency).strip():
         payload["preferredCurrency"] = str(preferred_currency).strip().upper()
 
@@ -137,8 +298,44 @@ async def fetch_market_prices(
                     await asyncio.sleep(1.5 * attempt)
                     continue
                 warn = str(data.get("warning") or "") or None
+                searches = data.get("serpapi_searches")
+                if searches is None and isinstance(data.get("locale"), dict):
+                    searches = data["locale"].get("serpapi_searches")
+                try:
+                    searches_n = int(searches or 0)
+                except (TypeError, ValueError):
+                    searches_n = 0
+                pre_filter = data.get("listings_raw")
+                if not isinstance(pre_filter, list):
+                    pre_filter = []
+                stats = data.get("serpapi_stats") if isinstance(data.get("serpapi_stats"), dict) else {}
+                search_log = data.get("serpapi_search_log")
+                if not isinstance(search_log, list):
+                    search_log = []
+                _last_fetch_meta = {
+                    "serpapi_searches": searches_n,
+                    "serpapi_stats": {
+                        "attempts": int(stats.get("attempts") or searches_n or 0),
+                        "retries": int(stats.get("retries") or 0),
+                        "successes": int(stats.get("successes") or 0),
+                        "failures": int(stats.get("failures") or 0),
+                        "cache_hits": int(stats.get("cache_hits") or 0),
+                        "cache_misses": int(stats.get("cache_misses") or 0),
+                        "cache_unknown": int(stats.get("cache_unknown") or 0),
+                        "client_from_cache": False,
+                    },
+                    "serpapi_search_log": search_log,
+                    "from_cache": False,
+                    "listings_raw": pre_filter,
+                    "cache_key": key,
+                }
                 if raw_listings:
-                    _market_cache[key] = (time.time(), raw_listings, warn)
+                    _market_cache[key] = (
+                        time.time(),
+                        raw_listings,
+                        warn,
+                        list(pre_filter),
+                    )
                 return raw_listings, warn
         except Exception as e:
             last_error = str(e)
@@ -146,6 +343,12 @@ async def fetch_market_prices(
             await asyncio.sleep(1.5 * attempt)
             await wake_market_service(20.0 if not _is_local_market_url() else 2.0)
 
+    _last_fetch_meta = {
+        "serpapi_searches": 0,
+        "from_cache": False,
+        "listings_raw": [],
+        "cache_key": key,
+    }
     return [], f"Market service unreachable: {last_error}"
 
 

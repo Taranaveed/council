@@ -1,0 +1,97 @@
+{
+
+  "version": "uk_sellers_v2",
+
+  "notes": "Merchant/source strings and domains for UK seller labeling. Marketplace patterns are NEVER origin evidence (unknown). confirmed_UK requires hard evidence (.co.uk / UK address / UK ship-from).",
+
+  "domains": [
+
+    "amazon.co.uk",
+
+    "ebay.co.uk",
+
+    "argos.co.uk",
+
+    "johnlewis.com",
+
+    "currys.co.uk",
+
+    "ao.com",
+
+    "tesco.com",
+
+    "sainsburys.co.uk",
+
+    "diy.com",
+
+    "screwfix.com",
+
+    "toolstation.com",
+
+    "nisbets.co.uk",
+
+    "viking-direct.co.uk",
+
+    "frasers.com",
+
+    "houseoffraser.co.uk",
+
+    "very.co.uk",
+
+    "asos.com",
+
+    "boots.com"
+
+  ],
+
+  "name_patterns": [
+
+    "amazon.co.uk",
+
+    "amazon uk",
+
+    "argos",
+
+    "john lewis",
+
+    "currys",
+
+    "ao.com",
+
+    "tesco",
+
+    "sainsbury",
+
+    "b&q",
+
+    "screwfix",
+
+    "toolstation",
+
+    "nisbets",
+
+    "viking",
+
+    "frasers",
+
+    "house of fraser",
+
+    "very.co.uk",
+
+    "boots"
+
+  ],
+
+  "marketplace_patterns": [
+
+    "ebay -",
+
+    "ebay.uk",
+
+    "ebay "
+
+  ]
+
+}
+
+

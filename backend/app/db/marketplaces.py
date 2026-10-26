@@ -338,7 +338,7 @@ def list_marketplaces_for_location(
 def infer_location_context(location: str) -> dict[str, str]:
     """Currency + regulatory framing from location keywords."""
     loc = (location or "").lower()
-    if any(k in loc for k in ["pakistan", "lahore", "karachi", "islamabad", "pk"]):
+    if any(k in loc for k in ["pakistan", "lahore", "karachi", "islamabad", "pk", "rawalpindi", "faisalabad", "multan", "peshawar"]):
         return {
             "currency": "PKR",
             "trade_zone": "Pakistan / South Asia",
@@ -347,7 +347,33 @@ def infer_location_context(location: str) -> dict[str, str]:
                 "weaker private-sale remedies than EU retail."
             ),
         }
-    if any(k in loc for k in ["uk", "united kingdom", "london", "manchester", "edinburgh", "england", "scotland", "wales"]):
+    if any(k in loc for k in ["india", "mumbai", "delhi", "bangalore", "bengaluru", "hyderabad", "chennai", "kolkata", "pune"]):
+        return {
+            "currency": "INR",
+            "trade_zone": "India / South Asia",
+            "regulatory_focus": (
+                "Quote INR for domestic. GST may apply. Cross-border factory quotes "
+                "(CN) need shipping, duties, and payment-term checks."
+            ),
+        }
+    if any(k in loc for k in ["uae", "united arab emirates", "dubai", "abu dhabi", "sharjah"]):
+        return {
+            "currency": "AED",
+            "trade_zone": "UAE / GCC",
+            "regulatory_focus": (
+                "Quote AED when possible. Free-zone vs mainland import rules differ; "
+                "confirm duties for consumer goods entering UAE."
+            ),
+        }
+    if any(k in loc for k in ["saudi", "riyadh", "jeddah", "dammam"]):
+        return {
+            "currency": "SAR",
+            "trade_zone": "Saudi Arabia / GCC",
+            "regulatory_focus": (
+                "Quote SAR. Import/customs and SASO conformity may apply for inbound goods."
+            ),
+        }
+    if any(k in loc for k in ["uk", "united kingdom", "london", "manchester", "edinburgh", "england", "scotland", "wales", "birmingham", "glasgow"]):
         return {
             "currency": "GBP",
             "trade_zone": "United Kingdom",
@@ -362,6 +388,7 @@ def infer_location_context(location: str) -> dict[str, str]:
             "germany", "france", "spain", "italy", "netherlands", "belgium", "ireland",
             "berlin", "paris", "madrid", "rome", "amsterdam", "dublin", "eu", "europe",
             "portugal", "austria", "sweden", "vienna", "stockholm", "lisbon",
+            "munich", "hamburg", "frankfurt", "lyon", "marseille", "barcelona", "milan", "rotterdam",
         ]
     ):
         return {
@@ -373,12 +400,36 @@ def infer_location_context(location: str) -> dict[str, str]:
                 "treat that differently from domestic EU delivery."
             ),
         }
-    if any(k in loc for k in ["usa", "united states", "new york", "california", "texas", "chicago", "los angeles", "seattle"]):
+    if any(k in loc for k in ["usa", "united states", "new york", "california", "texas", "chicago", "los angeles", "seattle", "houston", "austin"]):
         return {
             "currency": "USD",
             "trade_zone": "United States",
             "regulatory_focus": (
                 "Quote USD. Sales tax may apply. International shipping abroad can incur destination customs."
+            ),
+        }
+    if any(k in loc for k in ["canada", "toronto", "vancouver", "montreal", "calgary"]):
+        return {
+            "currency": "CAD",
+            "trade_zone": "Canada",
+            "regulatory_focus": (
+                "Quote CAD. Duties/GST/HST may apply on inbound goods; prefer domestic sellers when possible."
+            ),
+        }
+    if any(k in loc for k in ["australia", "sydney", "melbourne", "brisbane"]):
+        return {
+            "currency": "AUD",
+            "trade_zone": "Australia",
+            "regulatory_focus": (
+                "Quote AUD. Import duties/GST may apply on overseas orders."
+            ),
+        }
+    if any(k in loc for k in ["singapore"]):
+        return {
+            "currency": "SGD",
+            "trade_zone": "Singapore / ASEAN",
+            "regulatory_focus": (
+                "Quote SGD. GST may apply; check import rules for consumer goods."
             ),
         }
     return {

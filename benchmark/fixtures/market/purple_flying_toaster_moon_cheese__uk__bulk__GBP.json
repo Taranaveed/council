@@ -1,0 +1,34 @@
+{
+  "recorded_at": "20261026T105229Z",
+  "query": "purple flying toaster moon cheese",
+  "query_id": "29",
+  "gl": "uk",
+  "mode": "bulk",
+  "currency": "GBP",
+  "city": "London",
+  "cache_key": "purple flying toaster moon cheese|uk|bulk|GBP",
+  "serpapi_searches": 0,
+  "warning": "SerpApi returned zero usable seller prices for this query (gl=uk)",
+  "synthetic_junk": true,
+  "listings": [],
+  "listings_raw": [
+    {
+      "title": "Cheese Grater Stainless Steel",
+      "merchant": "Dunelm",
+      "price": "\u00a36.00",
+      "extracted_price": 6,
+      "link": "https://www.google.com/search?ibp=oshop&q=a",
+      "is_shopping_offer": true,
+      "host": "google.com"
+    },
+    {
+      "title": "Moon Lamp 3D LED Night Light",
+      "merchant": "Amazon.co.uk",
+      "price": "\u00a314.99",
+      "extracted_price": 14.99,
+      "link": "https://www.google.com/search?ibp=oshop&q=b",
+      "is_shopping_offer": true,
+      "host": "google.com"
+    }
+  ]
+}

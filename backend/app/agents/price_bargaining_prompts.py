@@ -100,13 +100,13 @@ def price_judge_prompt() -> str:
         '  "price_range": {"min": "string", "max": "string"},\n'
         '  "confidence": 0,\n'
         '  "summary": "2-3 sentence summary",\n'
-        '  "why_this_price": "1-2 sentences explaining vs live comps / seller band",\n'
+        '  "why_this_price": "1 short sentence: recommended vs local median vs seller band only",\n'
         '  "key_argument_for": "string",\n'
         '  "key_argument_against": "string",\n'
         '  "market_context": [{"vendor": "string", "price": "string"}]\n'
         "}\n"
         "Set confidence as your rough 0-100 gut check only (the server will recompute a "
-        "final score from live listing count, price spread, verified vendors, and how "
+        "final score from live listing count, price spread, known marketplace hosts, and how "
         "closely agents agree).\n"
         "If cost_of_goods / target margin appear in context, never recommend below a viable "
         "margin floor unless you explicitly warn.\n"
@@ -114,13 +114,20 @@ def price_judge_prompt() -> str:
         "1. recommended_price and price_range MUST use the seller's stated currency "
         "(from the form context), never switch to USD when the seller quoted PKR/INR/etc.\n"
         "2. Prefer recommended_price near the live listing median ONLY when listings are "
-        "comparable AND in the same currency as the seller.\n"
-        "3. If live listings are foreign-currency (FOREIGN / $, USD, £, €) while the seller "
+        "comparable AND in the same currency as the seller AND the median fits the seller band.\n"
+        "3. If the local median is ABOVE the seller's max, recommend at or near the seller max "
+        "and say clearly you are pricing UNDER the local market — do not call that 'near the cluster'.\n"
+        "4. If live listings are foreign-currency (FOREIGN / $, USD, £, €) while the seller "
         "uses a local currency: treat those listings as international reference only. "
-        "Anchor recommended_price inside the seller's stated min–max band. In summary, "
-        "say local comps were thin/missing and the foreign price is not a local median.\n"
-        "4. A rough FX conversion (if shown as local_approx) is context only — never present "
-        "it as a verified local listing price.\n"
-        "5. market_context should reflect live listings when available (include original "
-        "currency as shown). Return ONLY valid JSON."
+        "Anchor recommended_price inside the seller's stated min–max band.\n"
+        "5. A rough FX conversion (if shown as local_approx) is context only — never present "
+        "it as a live local listing price.\n"
+        "6. market_context should reflect live listings when available (include original "
+        "currency as shown). Do not invent vendors or prices.\n"
+        "7. If LIVE MARKET SYNC FAILED / no listings were retrieved: recommended_price MUST be "
+        "the seller's stated min–max band, confidence must be low, and summary MUST say this is "
+        "not a market median.\n"
+        "8. why_this_price / summary: use only numbers from the listings block and the seller band. "
+        "Never say verified, trusted, premium, or invent product subtypes not in the listing titles.\n"
+        "Return ONLY valid JSON."
     )

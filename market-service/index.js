@@ -23,6 +23,7 @@ import {
   isLocalMarketHost,
   productMatchScore,
   hostFromUrl,
+  reserveSourceSlots,
 } from "./listingQuality.js";
 import { fetchDirectMarketplaceListings } from "./marketplaceDirect.js";
 import {
@@ -94,6 +95,119 @@ function inspectSerpApiKey(raw) {
 
 const keyInfo = inspectSerpApiKey(process.env.SERPAPI_KEY);
 
+/** Per-request SerpApi call counters (serial-safe; concurrent requests may interleave). */
+let _serpCallsThisRequest = 0;
+let _serpStats = { attempts: 0, retries: 0, successes: 0, failures: 0 };
+let _serpSearchLog = [];
+function beginSerpRequestCount() {
+  _serpCallsThisRequest = 0;
+  _serpStats = { attempts: 0, retries: 0, successes: 0, failures: 0 };
+  _serpSearchLog = [];
+}
+function bumpSerpRequestCount() {
+  _serpCallsThisRequest += 1;
+}
+function serpRequestCount() {
+  return _serpCallsThisRequest;
+}
+function serpRequestStats() {
+  const cacheHits = _serpSearchLog.filter((s) => s.cache_hit === true).length;
+  const cacheMisses = _serpSearchLog.filter((s) => s.cache_hit === false).length;
+  const cacheUnknown = _serpSearchLog.filter((s) => s.cache_hit == null).length;
+  return {
+    ..._serpStats,
+    searches_attempted: _serpStats.attempts,
+    searches_used: _serpCallsThisRequest,
+    cache_hits: cacheHits,
+    cache_misses: cacheMisses,
+    cache_unknown: cacheUnknown,
+  };
+}
+function serpSearchLog() {
+  return _serpSearchLog.slice();
+}
+/** Infer SerpApi archive/cache hit from response metadata when present. */
+function serpCacheHitFromResponse(response) {
+  const md = response?.search_metadata || {};
+  if (md.cached === true || md.cache === true || md.from_cache === true || md.is_cache === true) {
+    return true;
+  }
+  if (md.cached === false || md.cache === false || md.from_cache === false || md.is_cache === false) {
+    return false;
+  }
+  const status = String(md.status || "").toLowerCase();
+  if (status.includes("cache")) return true;
+  // Some responses expose organic_results_state / search_information hints
+  const state = String(
+    response?.search_information?.organic_results_state ||
+      response?.search_information?.shopping_results_state ||
+      "",
+  ).toLowerCase();
+  if (state.includes("cache")) return true;
+  return null; // unknown — billed vs archived not explicit
+}
+function recordSerpSearchMeta(response, label, { attempt = 1, ok = true, error = null } = {}) {
+  const md = response?.search_metadata || {};
+  _serpSearchLog.push({
+    label: String(label || "serpapi").slice(0, 80),
+    attempt,
+    ok,
+    error: error ? String(error).slice(0, 160) : null,
+    cache_hit: ok ? serpCacheHitFromResponse(response) : null,
+    search_id: md.id || null,
+    status: md.status || null,
+    total_time_taken: md.total_time_taken ?? null,
+    created_at: md.created_at || null,
+    processed_at: md.processed_at || null,
+  });
+}
+
+/** Compact raw listing for benchmark record/replay (pre quality-filter). */
+function serializeListingRaw(row) {
+  const link = String(row?.link || "");
+  let host = "";
+  try {
+    host = link ? new URL(link).hostname.replace(/^www\./i, "") : "";
+  } catch {
+    host = String(row?.vendor || "").toLowerCase();
+  }
+  const title = String(row?.title || "");
+  const snippet = String(row?.snippet || row?.description || row?.source || "");
+  const packBits = [];
+  const packRe =
+    /\b(?:per\s*(?:box|carton|pack|case|pallet|lot|1000|k)|(?:box|carton|pack|case|pallet|lot)\s*of\s*\d+|\d+\s*(?:pcs?|pieces?|units?)\s*\/\s*(?:box|carton|pack)|pack\s*size)\b/gi;
+  for (const blob of [title, snippet, String(row?.package_weight_raw || "")]) {
+    const m = blob.match(packRe);
+    if (m) packBits.push(...m);
+  }
+  return {
+    link,
+    host,
+    title,
+    snippet: snippet.slice(0, 500),
+    vendor: row?.vendor || null,
+    source: row?.source || null,
+    merchant: row?.merchant || row?.merchant_name || null,
+    product_link: row?.product_link || null,
+    delivery: row?.delivery || null,
+    extracted_price: row?.extracted_price ?? null,
+    price: row?.price ?? null,
+    price_text: row?.price != null ? String(row.price) : null,
+    currency: row?.currency || null,
+    price_source: row?.price_source || null,
+    price_tiers: Array.isArray(row?.price_tiers) ? row.price_tiers : null,
+    moq: row?.moq ?? null,
+    moq_source: row?.moq_source || null,
+    pack_text: packBits.length ? [...new Set(packBits)].join("; ") : null,
+    weight_text: row?.package_weight_raw || null,
+    package_weight_kg: row?.package_weight_kg ?? null,
+    package_weight_basis: row?.package_weight_basis || null,
+    supplier_origin: row?.supplier_origin || null,
+    wholesale: Boolean(row?.wholesale),
+    is_shopping_offer: Boolean(row?.is_shopping_offer),
+  };
+}
+
 // First price token only — do not greedily eat "$1.32" + ",000" MOQ glued together
 const PRICE_IN_TEXT =
   /(?:Rs\.?|PKR|USD|\$|€|£|INR|AED|SAR)\s*\d{1,3}(?:,\d{3})*(?:\.\d+)?|\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*(?:Rs\.?|PKR)\b/i;
@@ -115,6 +229,15 @@ function mapListing(item, extras = {}) {
     price: norm.price || "See listing",
     vendor: extras.vendor || item.source || item.merchant || item.displayed_link || "Unknown",
     link: item.link || item.product_link || "",
+    // Preserve SerpApi shopping identity fields for UK-seller labeling
+    source: item.source || null,
+    merchant: item.merchant || item.source || null,
+    merchant_name: item.merchant || item.source || null,
+    product_link: item.product_link || item.link || null,
+    serp_thumbnail: item.thumbnail || null,
+    delivery: item.delivery || item.shipping || null,
+    extracted_price:
+      item.extracted_price != null ? String(item.extracted_price) : null,
     price_source:
       extras.price_source ||
       (item.price || item.extracted_price != null ? "serp" : snippetPrice ? "snippet" : "pending"),
@@ -267,11 +390,32 @@ function mergeListings(batches, limit) {
 }
 
 async function serpGetJson(params, label = "serpapi") {
-  return withRetries(() => getJson(params), {
-    retries: 3,
-    delayMs: 800,
-    label,
-  });
+  return withRetries(
+    async (attempt = 1) => {
+      bumpSerpRequestCount();
+      _serpStats.attempts += 1;
+      if (attempt > 1) _serpStats.retries += 1;
+      try {
+        const result = await getJson(params);
+        _serpStats.successes += 1;
+        recordSerpSearchMeta(result, label, { attempt, ok: true });
+        return result;
+      } catch (err) {
+        _serpStats.failures += 1;
+        recordSerpSearchMeta(null, label, {
+          attempt,
+          ok: false,
+          error: err?.message || err,
+        });
+        throw err;
+      }
+    },
+    {
+      retries: 3,
+      delayMs: 800,
+      label,
+    },
+  );
 }
 
 async function serpGoogleSearch({ q, locale, gl, hl, apiKey, num = 20 }) {
@@ -731,6 +875,7 @@ app.post("/market/prices", async (req, res) => {
     req.body || {};
   const startedAt = Date.now();
   const isBulk = Boolean(bulkMode);
+  beginSerpRequestCount();
 
   if (!productName || typeof productName !== "string") {
     return res.status(400).json({ error: "productName is required" });
@@ -1049,28 +1194,47 @@ app.post("/market/prices", async (req, res) => {
     listings.slice(0, 5).forEach((l, i) => {
       console.log(`  [${i}] ${l.vendor} | ${l.price} | src=${l.price_source}`);
     });
+    // Tier/MOQ extraction only — do NOT pass order quantity here.
+    // Qty-dependent tier choice + MOQ gates run after cache in the backend
+    // landed-cost path so one Serp fetch can serve many order sizes.
     listings = annotateListingsTiers(listings, {
       defaultCurrency:
         currencyHint || expectedCurrencyForGl(resolvedGl, profile) || "USD",
-      quantity: quantity != null ? Number(quantity) : null,
+      quantity: null,
     });
     // Fix mis-tagged factory "Rs 4" → USD before quality filter drops them
     listings = annotateListingsCurrency(listings, resolvedGl, currencyHint || null);
+
+    // Snapshot ALL rows before quality/rank filtering (for benchmark record/replay).
+    const listingsRawBeforeFilter = (listings || []).map((row) =>
+      serializeListingRaw(row),
+    );
+
+    const keptLimit = isBulk ? Math.max(safeLimit, 16) : safeLimit;
     listings = filterAndRankListings(listings, {
       gl: resolvedGl,
-      limit: isBulk ? Math.max(safeLimit, 16) : safeLimit,
+      limit: keptLimit,
       query: shortName,
       preferredCurrency: currencyHint || null,
       bulkMode: isBulk,
       profile,
     });
+    // Reserve Shopping vs wholesale slots so Shopping cannot crowd out B2B rows
+    if (isBulk) {
+      listings = reserveSourceSlots(listings, {
+        limit: keptLimit,
+        shoppingSlots: Math.min(8, Math.floor(keptLimit / 2)),
+        wholesaleSlots: Math.min(6, Math.floor(keptLimit / 2)),
+      });
+    }
     // Re-annotate after filter (approx / mismatch on survivors)
     listings = annotateListingsCurrency(listings, resolvedGl, currencyHint || null);
     if (isBulk) {
+      // Rank without order qty so cached payloads stay qty-agnostic.
       listings = rankBulkListings(listings, {
         gl: resolvedGl,
-        quantity,
-        budget,
+        quantity: null,
+        budget: null,
         preferredCurrency: currencyHint || null,
         profile,
       });
@@ -1104,16 +1268,46 @@ app.post("/market/prices", async (req, res) => {
     const foreignFinal = listings.filter((l) => l.currency_mismatch).length;
     const foreignOnly = listings.length > 0 && localFinal === 0;
 
+    const searchLog = serpSearchLog();
+    const sourceStatus = searchLog.map((e) => {
+      const label = String(e.label || "search");
+      const err = String(e.error || "");
+      let status = "fail";
+      if (e.ok) status = "ok";
+      else if (/timed?\s*out|timeout/i.test(err)) status = "timeout";
+      else if (e.empty || e.result_count === 0) status = "empty";
+      let short = label;
+      if (/site:alibaba/i.test(label)) short = "alibaba";
+      else if (/site:dhgat/i.test(label)) short = "dhgate";
+      else if (/google_shopping|primary:/i.test(label)) short = "google_shopping";
+      else if (/europages|site:eu/i.test(label)) short = "europages";
+      return { label: short, raw_label: label, status, ok: !!e.ok, error: err || null };
+    });
+
     let warning = primary.warning;
     if (listings.length === 0) {
       warning =
         primary.warning ||
         `SerpApi returned zero usable seller prices for this query (gl=${resolvedGl})`;
-    } else if (primary.transientFailure) {
-      warning = `${primary.warning || "Primary search failed briefly."} Recovered ${listings.length} price(s) from shop sites.`;
-    } else if (pageEnriched > 0) {
-      const base = warning ? `${warning} ` : "";
-      warning = `${base}Opened ${pageEnriched} seller page(s) to read live prices.`.trim();
+    } else {
+      // Priced rows exist — never leave the misleading zero-usable sentence
+      if (warning && /zero usable seller prices/i.test(warning)) {
+        warning = warning
+          .replace(/SerpApi returned zero usable seller prices for this query \(gl=\w+\)/gi, "")
+          .replace(/SerpApi returned zero usable seller prices for this query/gi, "")
+          .trim();
+      }
+      if (primary.transientFailure) {
+        warning = `${primary.warning || "Primary search failed briefly."} Recovered ${listings.length} price(s) from shop sites.`;
+      } else if (pageEnriched > 0) {
+        const base = warning ? `${warning} ` : "";
+        warning = `${base}Opened ${pageEnriched} seller page(s) to read live prices.`.trim();
+      }
+    }
+    if (sourceStatus.length) {
+      const summary = sourceStatus.map((s) => `${s.label}:${s.status}`).join("; ");
+      const bit = `Serp sources — ${summary}`;
+      warning = warning ? `${bit}. ${warning}` : bit;
     }
     if (foreignOnly && currencyHint && !isBulk) {
       const note =
@@ -1148,6 +1342,11 @@ app.post("/market/prices", async (req, res) => {
 
     return res.json({
       listings,
+      listings_raw: listingsRawBeforeFilter,
+      serpapi_searches: serpRequestCount(),
+      serpapi_stats: serpRequestStats(),
+      serpapi_search_log: searchLog,
+      serp_source_status: sourceStatus,
       warning:
         weakLeft === listings.length && listings.length > 0
           ? `${warning || ""} Some listing pages blocked price reading.`.trim()
@@ -1168,6 +1367,8 @@ app.post("/market/prices", async (req, res) => {
         siteSearches: siteSearchQueries(shortName, resolvedGl, 3).map((s) => s.host),
         pageEnriched,
         elapsedMs,
+        serpapi_searches: serpRequestCount(),
+        raw_count: listingsRawBeforeFilter.length,
       },
     });
   } catch (error) {

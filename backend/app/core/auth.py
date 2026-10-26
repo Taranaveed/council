@@ -13,9 +13,21 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer(auto_error=False)
 
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-me-please-use-32chars")
+_DEV_JWT_SECRET = "dev-secret-change-me-please-use-32chars"
+JWT_SECRET = os.getenv("JWT_SECRET", _DEV_JWT_SECRET)
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "72"))
+
+_prod = (
+    bool(os.getenv("RENDER"))
+    or os.getenv("ENV", "").lower() in ("production", "prod")
+    or os.getenv("ENVIRONMENT", "").lower() in ("production", "prod")
+)
+if _prod and (not os.getenv("JWT_SECRET") or JWT_SECRET == _DEV_JWT_SECRET or len(JWT_SECRET) < 32):
+    raise RuntimeError(
+        "JWT_SECRET must be a unique 32+ character secret in production. "
+        "Set it on the API host before starting."
+    )
 
 
 def hash_password(password: str) -> str:

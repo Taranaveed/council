@@ -1,0 +1,1434 @@
+{
+  "recorded_at": "20261026T005717Z",
+  "query": "tempered glass screen protector",
+  "query_id": "23",
+  "gl": "uk",
+  "mode": "bulk",
+  "currency": "GBP",
+  "city": "London",
+  "quantity_note": "Order qty is NOT part of the market fetch/cache; apply MOQ/tiers after loading this fixture.",
+  "cache_key": "tempered glass screen protector|uk|bulk|GBP",
+  "serpapi_searches": 4,
+  "warning": "Opened 2 seller page(s) to read live prices. Compared 6 wholesale supplier listing(s) (Europages, Alibaba). Best cheap pick for this region: Alibaba — best available (limited local supply).",
+  "listings": [
+    {
+      "title": "It&#39;s Me Factory Low Price Esd Og Glass Screen Protector Tempered Glass For Iphone Pro Max Tempered Glass Screen Protector - Buy Product on Alibaba.com",
+      "price": "$0.05",
+      "vendor": "Alibaba",
+      "link": "https://www.alibaba.com/product-detail/It-s-Me-Factory-Low-Price_1601712379190.html",
+      "price_source": "page",
+      "wholesale": true,
+      "supplier_id": "alibaba",
+      "supplier_type": "factory",
+      "supplier_origin": "CN",
+      "moq": 6,
+      "moq_source": "tier_min",
+      "price_tiers": [
+        {
+          "min_qty": 6,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 8,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 18,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 48,
+          "max_qty": 4,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 60,
+          "max_qty": 6,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 113,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 114,
+          "max_qty": 3,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 148,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 185,
+          "max_qty": 6,
+          "unit_price": "$3.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 205,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 220,
+          "max_qty": 5,
+          "unit_price": "$4.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 260,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 324,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 784,
+          "max_qty": 3,
+          "unit_price": "$6.82",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 55619,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 94476,
+          "max_qty": 5,
+          "unit_price": "$0.40",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 102477,
+          "max_qty": 17,
+          "unit_price": "$9.20",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 105905,
+          "max_qty": 25,
+          "unit_price": "$1.98",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 192381,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 258286,
+          "max_qty": 2,
+          "unit_price": "$3.33",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 578286,
+          "max_qty": 1,
+          "unit_price": "$8.58",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 592381,
+          "max_qty": 22,
+          "unit_price": "$7.94",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629333,
+          "max_qty": 5,
+          "unit_price": "$1.15",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629714,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 895619,
+          "max_qty": 5,
+          "unit_price": "$4.27",
+          "currency": "USD",
+          "source": "extracted"
+        }
+      ],
+      "tiers_source": "page",
+      "warranty": "Money-back protection<",
+      "warranty_source": "page",
+      "policy_links": [],
+      "policy_links_source": "page_checked_absent",
+      "variants": [
+        {
+          "label": "Photos"
+        },
+        {
+          "label": "Video"
+        },
+        {
+          "label": "+9"
+        }
+      ],
+      "variants_source": "page",
+      "is_product_page": true,
+      "page_facts_fetched": true,
+      "unit_price_verified": true,
+      "has_moq": true,
+      "has_price_tier": true,
+      "unit_basis": "per_piece",
+      "tiers_reliable": true,
+      "counts_as_live_listing": true,
+      "currency": "USD",
+      "currency_expected": "GBP",
+      "currency_mismatch": true,
+      "price_local_approx": "≈ £0.04",
+      "_unitUsd": 0.05,
+      "_supplier": {
+        "id": "alibaba",
+        "host": "alibaba.com",
+        "vendor": "Alibaba",
+        "type": "factory",
+        "origin": "CN",
+        "regions": [
+          "global",
+          "pk",
+          "in",
+          "ae",
+          "us",
+          "uk",
+          "gb",
+          "ca",
+          "asia"
+        ],
+        "productRe": {}
+      },
+      "unit_usd": 0.05,
+      "best_pick": true,
+      "pick_reason": "best available (limited local supply)"
+    },
+    {
+      "title": "Og Privacy Screen Protectors 9h 2.5d Anti Spy Tempered Glass Screen Protector Cell Phone Protector - Buy Product on Alibaba.com",
+      "price": "$0.45",
+      "vendor": "Alibaba",
+      "link": "https://www.alibaba.com/product-detail/og-privacy-screen-protectors-9h-2_1601049414213.html",
+      "price_source": "page",
+      "wholesale": true,
+      "supplier_id": "alibaba",
+      "supplier_type": "factory",
+      "supplier_origin": "CN",
+      "moq": 2,
+      "moq_source": "tier_min",
+      "price_tiers": [
+        {
+          "min_qty": 2,
+          "max_qty": 160104941421,
+          "unit_price": "$3.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 6,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 8,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 18,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 48,
+          "max_qty": 4,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 58,
+          "max_qty": 1,
+          "unit_price": "$5.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 60,
+          "max_qty": 6,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 113,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 114,
+          "max_qty": 3,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 145,
+          "max_qty": 4,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 148,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 185,
+          "max_qty": 6,
+          "unit_price": "$3.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 200,
+          "max_qty": 199,
+          "unit_price": "$9.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 205,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 220,
+          "max_qty": 5,
+          "unit_price": "$4.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 260,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 324,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 784,
+          "max_qty": 3,
+          "unit_price": "$6.82",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 813,
+          "max_qty": 55,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 2000,
+          "max_qty": 499,
+          "unit_price": "$9.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 5000,
+          "max_qty": 9999,
+          "unit_price": "$9.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 55619,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 94476,
+          "max_qty": 5,
+          "unit_price": "$0.40",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 102477,
+          "max_qty": 17,
+          "unit_price": "$9.20",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 105905,
+          "max_qty": 25,
+          "unit_price": "$1.98",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 192381,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 258286,
+          "max_qty": 2,
+          "unit_price": "$3.33",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 578286,
+          "max_qty": 1,
+          "unit_price": "$8.58",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 592381,
+          "max_qty": 22,
+          "unit_price": "$7.94",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629333,
+          "max_qty": 5,
+          "unit_price": "$1.15",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629714,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 895619,
+          "max_qty": 5,
+          "unit_price": "$4.27",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 6000000007422,
+          "max_qty": 5,
+          "unit_price": "$5.00",
+          "currency": "USD",
+          "source": "extracted"
+        }
+      ],
+      "tiers_source": "page",
+      "package_weight_kg": 0.039,
+      "package_weight_raw": "0.039 kg",
+      "package_weight_source": "page",
+      "warranty": "Money-back protection<",
+      "warranty_source": "page",
+      "policy_links": [],
+      "policy_links_source": "page_checked_absent",
+      "variants": [
+        {
+          "label": "Photos"
+        },
+        {
+          "label": "Video"
+        }
+      ],
+      "variants_source": "page",
+      "is_product_page": true,
+      "page_facts_fetched": true,
+      "unit_price_verified": true,
+      "has_moq": true,
+      "has_price_tier": true,
+      "unit_basis": "per_piece",
+      "tiers_reliable": true,
+      "counts_as_live_listing": true,
+      "currency": "USD",
+      "currency_expected": "GBP",
+      "currency_mismatch": true,
+      "price_local_approx": "≈ £0.35",
+      "_unitUsd": 0.45,
+      "_supplier": {
+        "id": "alibaba",
+        "host": "alibaba.com",
+        "vendor": "Alibaba",
+        "type": "factory",
+        "origin": "CN",
+        "regions": [
+          "global",
+          "pk",
+          "in",
+          "ae",
+          "us",
+          "uk",
+          "gb",
+          "ca",
+          "asia"
+        ],
+        "productRe": {}
+      },
+      "unit_usd": 0.45,
+      "best_pick": false,
+      "pick_reason": "ships / sources closer to the buyer"
+    },
+    {
+      "title": "Wholesale Custom Tempered Glass Screen Protector ...",
+      "price": "$20",
+      "vendor": "Alibaba",
+      "link": "https://www.alibaba.com/product-detail/Wholesale-Custom-Tempered-Glass-Screen-Protector_1600450410316.html",
+      "price_source": "serp",
+      "wholesale": true,
+      "supplier_id": "alibaba",
+      "supplier_type": "factory",
+      "supplier_origin": "CN",
+      "is_product_page": true,
+      "unit_basis": "per_piece",
+      "tiers_reliable": true,
+      "unit_price_verified": false,
+      "has_price_tier": false,
+      "has_moq": false,
+      "page_facts_fetched": false,
+      "counts_as_live_listing": true,
+      "currency": "USD",
+      "currency_expected": "GBP",
+      "currency_mismatch": true,
+      "price_local_approx": "≈ £16",
+      "moq": null,
+      "moq_source": "not_on_snippet",
+      "moq_display": "MOQ not confirmed — verify on seller page",
+      "_unitUsd": 20,
+      "_supplier": {
+        "id": "alibaba",
+        "host": "alibaba.com",
+        "vendor": "Alibaba",
+        "type": "factory",
+        "origin": "CN",
+        "regions": [
+          "global",
+          "pk",
+          "in",
+          "ae",
+          "us",
+          "uk",
+          "gb",
+          "ca",
+          "asia"
+        ],
+        "productRe": {}
+      },
+      "unit_usd": 20,
+      "best_pick": false,
+      "pick_reason": "ships / sources closer to the buyer"
+    }
+  ],
+  "listings_raw": [
+    {
+      "link": "https://www.europages.com/companies/cases-%20cigarette.html",
+      "host": "europages.com",
+      "title": "suppliers | Europages – cases cigarette",
+      "snippet": "",
+      "vendor": "Europages",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "USD",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "EU",
+      "wholesale": true
+    },
+    {
+      "link": "https://www.alibaba.com/product-detail/It-s-Me-Factory-Low-Price_1601712379190.html",
+      "host": "alibaba.com",
+      "title": "It&#39;s Me Factory Low Price Esd Og Glass Screen Protector Tempered Glass For Iphone Pro Max Tempered Glass Screen Protector - Buy Product on Alibaba.com",
+      "snippet": "",
+      "vendor": "Alibaba",
+      "price": "$0.05",
+      "price_text": "$0.05",
+      "currency": "USD",
+      "price_source": "page",
+      "price_tiers": [
+        {
+          "min_qty": 6,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 8,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 18,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 48,
+          "max_qty": 4,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 60,
+          "max_qty": 6,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 113,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 114,
+          "max_qty": 3,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 148,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 185,
+          "max_qty": 6,
+          "unit_price": "$3.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 205,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 220,
+          "max_qty": 5,
+          "unit_price": "$4.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 260,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 324,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 784,
+          "max_qty": 3,
+          "unit_price": "$6.82",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 55619,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 94476,
+          "max_qty": 5,
+          "unit_price": "$0.40",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 102477,
+          "max_qty": 17,
+          "unit_price": "$9.20",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 105905,
+          "max_qty": 25,
+          "unit_price": "$1.98",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 192381,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 258286,
+          "max_qty": 2,
+          "unit_price": "$3.33",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 578286,
+          "max_qty": 1,
+          "unit_price": "$8.58",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 592381,
+          "max_qty": 22,
+          "unit_price": "$7.94",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629333,
+          "max_qty": 5,
+          "unit_price": "$1.15",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629714,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 895619,
+          "max_qty": 5,
+          "unit_price": "$4.27",
+          "currency": "USD",
+          "source": "extracted"
+        }
+      ],
+      "moq": 6,
+      "moq_source": "tier_min",
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://www.alibaba.com/product-detail/og-privacy-screen-protectors-9h-2_1601049414213.html",
+      "host": "alibaba.com",
+      "title": "Og Privacy Screen Protectors 9h 2.5d Anti Spy Tempered Glass Screen Protector Cell Phone Protector - Buy Product on Alibaba.com",
+      "snippet": "",
+      "vendor": "Alibaba",
+      "price": "$0.45",
+      "price_text": "$0.45",
+      "currency": "USD",
+      "price_source": "page",
+      "price_tiers": [
+        {
+          "min_qty": 2,
+          "max_qty": 160104941421,
+          "unit_price": "$3.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 6,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 8,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 18,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 48,
+          "max_qty": 4,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 58,
+          "max_qty": 1,
+          "unit_price": "$5.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 60,
+          "max_qty": 6,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 113,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 114,
+          "max_qty": 3,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 145,
+          "max_qty": 4,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 148,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 185,
+          "max_qty": 6,
+          "unit_price": "$3.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 200,
+          "max_qty": 199,
+          "unit_price": "$9.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 205,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 220,
+          "max_qty": 5,
+          "unit_price": "$4.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 260,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 324,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 784,
+          "max_qty": 3,
+          "unit_price": "$6.82",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 813,
+          "max_qty": 55,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 2000,
+          "max_qty": 499,
+          "unit_price": "$9.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 5000,
+          "max_qty": 9999,
+          "unit_price": "$9.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 55619,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 94476,
+          "max_qty": 5,
+          "unit_price": "$0.40",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 102477,
+          "max_qty": 17,
+          "unit_price": "$9.20",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 105905,
+          "max_qty": 25,
+          "unit_price": "$1.98",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 192381,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 258286,
+          "max_qty": 2,
+          "unit_price": "$3.33",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 578286,
+          "max_qty": 1,
+          "unit_price": "$8.58",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 592381,
+          "max_qty": 22,
+          "unit_price": "$7.94",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629333,
+          "max_qty": 5,
+          "unit_price": "$1.15",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629714,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 895619,
+          "max_qty": 5,
+          "unit_price": "$4.27",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 6000000007422,
+          "max_qty": 5,
+          "unit_price": "$5.00",
+          "currency": "USD",
+          "source": "extracted"
+        }
+      ],
+      "moq": 2,
+      "moq_source": "tier_min",
+      "pack_text": null,
+      "weight_text": "0.039 kg",
+      "package_weight_kg": 0.039,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=catalogid:13087747325438537908,productid:11267848887403108631,headlineOfferDocid:4009130388902422514,imageDocid:10771604627116638233,rds:PC_8932018627507263551|PROD_PC_8932018627507263551,gpcid:8932018627507263551,mid:576462460084354261,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Olixar 2 Pack Film Screen Protectors",
+      "snippet": "",
+      "vendor": "Mobile Fun",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=productid:2316754337465556362,headlineOfferDocid:2316754337465556362,imageDocid:2198033865043958479,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "4youquality Privacy Screen Protector For Iphone 17 Pro Max & 16 Black",
+      "snippet": "",
+      "vendor": "eBay - theorienthoney",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=productid:4082272595751476692,headlineOfferDocid:4082272595751476692,imageDocid:16645216041907987992,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Tempered Glass Screen Protector for Apple iPhone 11 Pro Mobile Phones - Pack of 1",
+      "snippet": "",
+      "vendor": "B&Q",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": "Pack of 1",
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=catalogid:1288695544500697546,productid:8782745427727666105,headlineOfferDocid:263067971988756750,imageDocid:1379988404228269232,rds:PC_1725271426193176566|PROD_PC_1725271426193176566,gpcid:1725271426193176566,mid:576462855641916305,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Belkin UltraGlass 2 Screen Protector for iPhone 15 Pro Max",
+      "snippet": "",
+      "vendor": "Apple",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=catalogid:17986449212136164583,productid:6769989601011234746,headlineOfferDocid:9027353453142015674,imageDocid:6721383537850988306,gpcid:3845719020810100820,mid:576462878685568711,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "4youquality [3-Pack Screen Protector for iPhone 17 Pro Max / 16 Transparent",
+      "snippet": "",
+      "vendor": "Amazon.co.uk - Amazon.co.uk-Seller",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=productid:165587482810422047,headlineOfferDocid:165587482810422047,imageDocid:1834596769481810714,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "JETech Screen Protector for iPhone 15 Pro Max, 3+3 Pack | with Camera Lens Protector, HD Clear Tempered Glass, Anti-Scratch Protection, Easy",
+      "snippet": "",
+      "vendor": "Amazon.co.uk - Amazon.co.uk-Seller",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=catalogid:7026846655397596473,productid:6767068402558360442,headlineOfferDocid:11776543474519456100,imageDocid:2956965529501492057,rds:PC_14005234994901278383|PROD_PC_14005234994901278383,gpcid:14005234994901278383,mid:576462758973575264,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Belkin UltraGlass 2 Screen Protector for iPhone 15 Pro",
+      "snippet": "",
+      "vendor": "Apple",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=catalogid:16469160506971859489,productid:7667923224926700026,headlineOfferDocid:10524417076471158510,imageDocid:15014566662132272759,gpcid:3378928600794121606,mid:576462878170947166,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "2-Pack Screen Protector for iPhone 16",
+      "snippet": "",
+      "vendor": "Amazon.co.uk - Amazon.co.uk-Seller",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=catalogid:16003034823377957099,productid:8865106080803942055,headlineOfferDocid:15506804758238564111,imageDocid:16886762116154330962,rds:PC_8557296256066892693|PROD_PC_8557296256066892693,gpcid:8557296256066892693,mid:576462605988367370,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "PanzerGlass Anti-glare Displayschutzglas Apple iPhone 13 Pro Max",
+      "snippet": "",
+      "vendor": "Tesco",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=catalogid:10258178411397958593,productid:13754901581461433372,headlineOfferDocid:2712691306481074014,imageDocid:4312270747846784918,rds:PC_8612843612652779138|PROD_PC_8612843612652779138,gpcid:8612843612652779138,mid:576462872086055745,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Belkin UltraGlass 2 Screen Protector for iPhone Air",
+      "snippet": "",
+      "vendor": "Apple",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=catalogid:12906502888395842060,productid:12050913123635595969,headlineOfferDocid:15685119466592899752,imageDocid:10755116075435670104,gpcid:10883496936803379954,mid:576462886236805800,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Groov-e iPhone 15 Pro Max Tempered Glass Screen Protector",
+      "snippet": "",
+      "vendor": "Tesco",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=catalogid:13486098285767706231,productid:13507348658563880737,headlineOfferDocid:7031673418444792679,imageDocid:17712696008423461156,gpcid:15133987662231369748,mid:576462810175264642,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "groov-e Premium Tempered Glass Screen Protector for iPhone 16 gvmp187",
+      "snippet": "",
+      "vendor": "Tesco",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=productid:6113817540533714146,headlineOfferDocid:6113817540533714146,imageDocid:1478152463099956103,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "JETech Screen Protector for iPhone 15 Pro Max, 2-Pack | 9H Tempered Glass, HD Clear, Anti-Scratch Protection, Easy Installation Tool",
+      "snippet": "",
+      "vendor": "Amazon.co.uk - Amazon.co.uk-Seller",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=productid:7222983559697724111,headlineOfferDocid:7222983559697724111,imageDocid:12838581825349437373,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Iphone 16/17 Pro Max Glass Screen Protector Pro Clear Shatterproof",
+      "snippet": "",
+      "vendor": "eBay",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=tempered glass screen protector&prds=catalogid:15425991549168188942,productid:16374012211912520094,headlineOfferDocid:10683879440676864799,imageDocid:10304466801240174260,rds:PC_15817013387302407160|PROD_PC_15817013387302407160,gpcid:15817013387302407160,mid:576462859604660666,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Belkin UltraGlass 2 Screen Protector for iPhone 17",
+      "snippet": "",
+      "vendor": "Apple",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.alibaba.com/product-detail/Wholesale-Custom-Tempered-Glass-Screen-Protector_1600450410316.html",
+      "host": "alibaba.com",
+      "title": "Wholesale Custom Tempered Glass Screen Protector ...",
+      "snippet": "",
+      "vendor": "Alibaba",
+      "price": "$20",
+      "price_text": "$20",
+      "currency": "USD",
+      "price_source": "serp",
+      "price_tiers": null,
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://www.alibaba.com/product-detail/EOS-R5-Screen-Protector-for-Canon_1600110322535.html",
+      "host": "alibaba.com",
+      "title": "Canon R5 Screen Protector - 9H Tempered Glass Quality",
+      "snippet": "",
+      "vendor": "Alibaba",
+      "price": "$9.00",
+      "price_text": "$9.00",
+      "currency": "USD",
+      "price_source": "snippet",
+      "price_tiers": null,
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://www.alibaba.com/product-detail/Anti-static-ESD-Tempered-Glass-IT_1601519033100.html",
+      "host": "alibaba.com",
+      "title": "Anti-static Esd Tempered Glass It's Me Og Anti-spy Screen ...",
+      "snippet": "",
+      "vendor": "Alibaba",
+      "price": "$0.19",
+      "price_text": "$0.19",
+      "currency": "USD",
+      "price_source": "serp",
+      "price_tiers": null,
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    }
+  ]
+}

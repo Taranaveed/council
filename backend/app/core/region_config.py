@@ -11,13 +11,11 @@ def _env(name: str, default: str) -> str:
 
 
 # Logical region for CDN / routing (us | eu | uk | asia | pk | ...)
-DEFAULT_REGION = _env("DEFAULT_REGION", "us").lower()
-# ISO-ish country code for locale / geo (e.g. PK, US).
-# Note: Google Shopping does not support every country (Pakistan `pk` is excluded).
-# market-service falls back to engine=google for unsupported shopping `gl` codes.
-DEFAULT_COUNTRY_CODE = _env("DEFAULT_COUNTRY_CODE", "us").upper()
-# Human-readable fallback location label
-DEFAULT_LOCATION = _env("DEFAULT_LOCATION", "United States")
+# Phase 1: UK is the deploy default. Pakistan remains golden fixture region_pk_v1.
+# Note: Google Shopping does not support Pakistan (`pk`) — market-service uses engine=google.
+DEFAULT_REGION = _env("DEFAULT_REGION", "uk").lower()
+DEFAULT_COUNTRY_CODE = _env("DEFAULT_COUNTRY_CODE", "uk").upper()
+DEFAULT_LOCATION = _env("DEFAULT_LOCATION", "United Kingdom")
 DEFAULT_LANGUAGE = _env("DEFAULT_LANGUAGE", "en")
 
 _LOCATION_TO_GL: list[tuple[re.Pattern[str], str]] = [

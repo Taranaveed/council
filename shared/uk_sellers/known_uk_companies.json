@@ -1,0 +1,93 @@
+{
+
+  "version": "known_uk_companies_v1",
+
+  "notes": "Named UK high-street / trade retailers. Matching a company counts as confirmed_UK origin evidence (duty 0 / import VAT 0). Marketplaces (eBay, Amazon marketplace sellers) are NOT listed here and stay unknown.",
+
+  "companies": [
+
+    {
+
+      "id": "argos",
+
+      "patterns": ["argos"],
+
+      "source_note": "Argos Ltd — major UK catalogue/high-street retailer (Sainsbury's Group)"
+
+    },
+
+    {
+
+      "id": "currys",
+
+      "patterns": ["currys"],
+
+      "source_note": "Currys plc — UK electricals retailer"
+
+    },
+
+    {
+
+      "id": "john_lewis",
+
+      "patterns": ["john lewis"],
+
+      "source_note": "John Lewis Partnership — UK department store"
+
+    },
+
+    {
+
+      "id": "boots",
+
+      "patterns": ["boots.com", "boots"],
+
+      "source_note": "Boots UK — pharmacy/beauty high-street chain"
+
+    },
+
+    {
+
+      "id": "screwfix",
+
+      "patterns": ["screwfix"],
+
+      "source_note": "Screwfix — UK trade/DIY retailer"
+
+    },
+
+    {
+
+      "id": "toolstation",
+
+      "patterns": ["toolstation"],
+
+      "source_note": "Toolstation — UK trade tools retailer"
+
+    },
+
+    {
+
+      "id": "tesco",
+
+      "patterns": ["tesco"],
+
+      "source_note": "Tesco plc — UK supermarket"
+
+    },
+
+    {
+
+      "id": "sainsburys",
+
+      "patterns": ["sainsbury", "sainsbury's", "sainsburys"],
+
+      "source_note": "J Sainsbury plc — UK supermarket"
+
+    }
+
+  ]
+
+}
+
+

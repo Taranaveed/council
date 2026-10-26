@@ -1,0 +1,235 @@
+{
+
+  "version": "uk_retail_price_bands_v1",
+
+  "currency": "GBP",
+
+  "notes": "Unit-price floors/ceilings for UK single-unit RETAIL shopping comps (Google Shopping). Higher than wholesale bands. Soft flag when within 3× of a bound; hide only beyond 3×. Sources are working assumptions — not list prices.",
+
+  "default": {
+
+    "floor_gbp": 0.50,
+
+    "ceiling_gbp": 200.0,
+
+    "source_note": "Fallback retail band; high-ticket consumer goods may need quote"
+
+  },
+
+  "categories": [
+
+    {
+
+      "id": "phone_accessories",
+
+      "match": "phone case|silicone phone cover|tempered glass|screen protector|memory stick|usb stick",
+
+      "floor_gbp": 0.50,
+
+      "ceiling_gbp": 60.0,
+
+      "source_note": "UK retail cases/protectors often £3–£40; MagSafe/premium higher"
+
+    },
+
+    {
+
+      "id": "cables",
+
+      "match": "usb c cable|usb-c|hdmi|cable",
+
+      "floor_gbp": 0.80,
+
+      "ceiling_gbp": 45.0,
+
+      "source_note": "Retail USB-C/HDMI cables typically £2–£30"
+
+    },
+
+    {
+
+      "id": "audio",
+
+      "match": "earphone|headphone|wired earphones",
+
+      "floor_gbp": 1.0,
+
+      "ceiling_gbp": 120.0,
+
+      "source_note": "Retail earbuds/headphones: budget £10–£40, mid £40–£120 (Argos/Currys/JL)"
+
+    },
+
+    {
+
+      "id": "bags",
+
+      "match": "tote bag|bag",
+
+      "floor_gbp": 1.0,
+
+      "ceiling_gbp": 80.0,
+
+      "source_note": "Retail totes/bags commonly £5–£50"
+
+    },
+
+    {
+
+      "id": "home",
+
+      "match": "desk lamp|kitchen spatula|spatula|candle|mug|yoga mat|water bottle",
+
+      "floor_gbp": 1.0,
+
+      "ceiling_gbp": 100.0,
+
+      "source_note": "Small homewares / candles / bottles / mats retail often £5–£60"
+
+    },
+
+    {
+
+      "id": "office_notebook",
+
+      "match": "notebook|notepad|exercise book",
+
+      "floor_gbp": 0.50,
+
+      "ceiling_gbp": 40.0,
+
+      "source_note": "Retail notebooks £1–£25; premium journals to ~£40"
+
+    },
+
+    {
+
+      "id": "office",
+
+      "match": "ballpoint|pen|stationery",
+
+      "floor_gbp": 0.10,
+
+      "ceiling_gbp": 15.0,
+
+      "source_note": "Retail pens/stationery; multi-packs can read high per listing"
+
+    },
+
+    {
+
+      "id": "apparel",
+
+      "match": "t shirt|t-shirt|tee",
+
+      "floor_gbp": 2.0,
+
+      "ceiling_gbp": 50.0,
+
+      "source_note": "Retail blank/fashion tees often £5–£35"
+
+    },
+
+    {
+
+      "id": "tools",
+
+      "match": "allen keys|hex key|tool|dog lead|nylon",
+
+      "floor_gbp": 1.0,
+
+      "ceiling_gbp": 60.0,
+
+      "source_note": "Retail tool sets / leads commonly £5–£40"
+
+    },
+
+    {
+
+      "id": "uk_wholesale_food",
+
+      "match": "rice|cash and carry|catering foil|disposable cups",
+
+      "floor_gbp": 1.0,
+
+      "ceiling_gbp": 80.0,
+
+      "source_note": "Retail/catering packs; foil rolls and rice bags often £5–£40"
+
+    },
+
+    {
+
+      "id": "compliance_cosmetics",
+
+      "match": "lip gloss|makeup brush|cosmetic",
+
+      "floor_gbp": 0.50,
+
+      "ceiling_gbp": 45.0,
+
+      "source_note": "Retail cosmetics £2–£30; multipacks/shade sets higher"
+
+    },
+
+    {
+
+      "id": "compliance_toy",
+
+      "match": "soft toy|plush|toy",
+
+      "floor_gbp": 1.0,
+
+      "ceiling_gbp": 80.0,
+
+      "source_note": "Retail plush/toys often £5–£50"
+
+    },
+
+    {
+
+      "id": "compliance_electrical",
+
+      "match": "extension lead|uk plug|power strip",
+
+      "floor_gbp": 2.0,
+
+      "ceiling_gbp": 80.0,
+
+      "source_note": "UK extension leads retail £5–£40; packs/surge higher"
+
+    },
+
+    {
+
+      "id": "power",
+
+      "match": "power bank",
+
+      "floor_gbp": 5.0,
+
+      "ceiling_gbp": 100.0,
+
+      "source_note": "Retail 10Ah power banks often £10–£50"
+
+    },
+
+    {
+
+      "id": "jewelry",
+
+      "match": "necklace|ring|jewellery|jewelry",
+
+      "floor_gbp": 1.0,
+
+      "ceiling_gbp": 200.0,
+
+      "source_note": "Fashion jewelry retail; precious-metal claims handled separately"
+
+    }
+
+  ]
+
+}
+
+

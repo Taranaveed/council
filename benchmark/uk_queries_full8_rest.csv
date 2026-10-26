@@ -1,0 +1,7 @@
+query_id,category,query,quantity,buying_mode,city,currency,notes,winner_correct,page_price_matches,landed_plausible,would_trust,notes_manual
+8,audio,earphones,100,bulk,Leeds,GBP,full8 replay rest,,,,,
+11,office,notebooks,200,bulk,Glasgow,GBP,full8 replay rest,,,,,
+22,compliance,uk plug extension lead,80,bulk,London,GBP,full8 replay rest,,,,,
+20,compliance,lip gloss bulk,100,bulk,London,GBP,full8 replay rest,,,,,
+18,uk_wholesale,nisbets catering foil rolls,10,bulk,Birmingham,GBP,full8 replay rest,,,,,
+28,nonsense,asdf qwer zxcv notaproduct,100,bulk,London,GBP,nonsense control,,,,,

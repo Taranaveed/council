@@ -121,17 +121,17 @@ async def resolve_ip_location(request: Request):
         if not country_code:
             source = "fallback"
 
-    fallback_cc = (os.getenv("DEFAULT_COUNTRY_CODE") or "US").upper()
+    fallback_cc = (os.getenv("DEFAULT_COUNTRY_CODE") or "UK").upper()
     country_code = (country_code or fallback_cc).upper()
     if len(country_code) != 2:
-        country_code = fallback_cc if len(fallback_cc) == 2 else "US"
+        country_code = fallback_cc if len(fallback_cc) == 2 else "UK"
     country = country or COUNTRY_NAMES.get(country_code, country_code)
     parts = [p for p in [city, country] if p]
     location_label = ", ".join(parts) if parts else country
 
     nearest = COUNTRY_TO_REGION.get(
         country_code,
-        os.getenv("DEFAULT_REGION", "us").lower(),
+        os.getenv("DEFAULT_REGION", "uk").lower(),
     )
 
     return GeoResponse(

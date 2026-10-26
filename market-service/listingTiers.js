@@ -345,10 +345,41 @@ export function selectTierForQuantity(tiers, quantity) {
  * Does NOT invent unit prices from storefronts. Synthetic single-unit tiers only when
  * price_source is "page" on a real product-detail URL.
  */
+function isGoogleShoppingOfferUrl(url) {
+  const u = String(url || "").toLowerCase();
+  return (
+    /google\.[^/]+\/search/i.test(u) &&
+    (u.includes("ibp=oshop") || u.includes("tbm=shop"))
+  );
+}
+
 export function annotateListingTiers(listing, { html = "", defaultCurrency = "USD", quantity = null } = {}) {
   const row = { ...(listing || {}) };
   const link = String(row.link || "");
   const productPage = isProductDetailUrl(link);
+
+  // Google Shopping offer cards: keep merchant/source + any SERP price for review.
+  // Never Best-pick / never counts as verified product-page wholesale.
+  if (!productPage && isGoogleShoppingOfferUrl(link)) {
+    row.is_product_page = false;
+    row.is_shopping_offer = true;
+    row.counts_as_live_listing = false;
+    row.best_pick_eligible = false;
+    row.price_review_only = true;
+    row.channel = row.channel || "uk_retail_shopping";
+    row.sourcing_action = "verify_bulk_discount";
+    row.sourcing_note = "UK seller, unit price; verify bulk discount";
+    // Do NOT wipe a real SERP price — leave for display/review
+    if (!row.price || /^(see listing)/i.test(String(row.price))) {
+      row.price_source = row.price_source || "shopping_offer_unpriced";
+    } else {
+      row.price_source = row.price_source || "serp_shopping";
+    }
+    row.price_tiers = row.price_tiers || [];
+    row.has_price_tier = false;
+    row.tiers_reliable = false;
+    return row;
+  }
 
   // Storefront / homepage — never trust a unit price; do not count as live priced listing
   if (!productPage) {

@@ -134,11 +134,11 @@ def annotate_price_outliers(
     listings: list[dict[str, Any]],
     *,
     query: str = "",
-    max_median_ratio: float = 20.0,
+    max_median_ratio: float = 5.0,
 ) -> list[dict[str, Any]]:
     """
-    Flag listings whose unit USD is >max_median_ratio× (or <1/ratio of) the
-    peer median. Also marks implausible metal quotes. Callers must exclude.
+    Flag listings whose unit USD is >max_median_ratio× peer median (default 5×)
+    or <20% of peer median. Also marks implausible metal quotes. Callers must exclude.
     """
     rows = annotate_implausible_metal_prices([dict(x) for x in (listings or [])])
 
@@ -182,15 +182,85 @@ def annotate_price_outliers(
     for i, u in usd_vals:
         if rows[i].get("price_outlier"):
             continue
-        if u > median * max_median_ratio or u < median / max_median_ratio:
+        # UK retail Shopping comps are a different channel than factory imports —
+        # do not peer-median them against Alibaba/DHgate unit prices.
+        if rows[i].get("uk_retail_priced"):
+            continue
+        # High: >max_median_ratio× median (default 5×). Low: <20% of peer median.
+        if u > median * max_median_ratio or u < median * 0.20:
             rows[i]["price_outlier"] = True
+            rows[i]["price_implausible"] = True
+            rows[i]["price_flagged"] = True
+            why = (
+                f">={max_median_ratio:.0f}x_peer_median"
+                if u > median * max_median_ratio
+                else "<20pct_peer_median"
+            )
+            rows[i]["price_flag_reasons"] = list(
+                dict.fromkeys((rows[i].get("price_flag_reasons") or []) + [why])
+            )
             rows[i]["price_outlier_reason"] = (
                 f"unit ≈ ${u:.2f} USD vs peer median ≈ ${median:.2f} "
-                f"(>{max_median_ratio:.0f}× spread) — price could not be reliably parsed"
+                f"(>{max_median_ratio:.0f}× or <20% of median) — price could not be reliably parsed"
             )
             rows[i]["counts_as_live_listing"] = False
             if not rows[i].get("unit_price_rejected"):
                 rows[i]["unit_price_unreliable"] = True
+    return _apply_uk_category_bands(rows, query)
+
+
+def _apply_uk_category_bands(rows: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
+    """GBP floor/ceiling from shared/price_bands/uk_categories.json (+ legacy USD bands)."""
+    from app.utils.price_bands import assess_category_band
+
+    for row in rows:
+        if row.get("price_outlier") and row.get("price_flagged"):
+            # still also run category for richer reasons
+            pass
+        u_usd = _listing_usd(row)
+        if u_usd is None:
+            continue
+        # Approx USD→GBP for band check (bands file is GBP)
+        unit_gbp = u_usd / 1.27
+        pt = row.get("price_type")
+        if row.get("uk_retail_priced"):
+            pt = "retail"
+        assessment = assess_category_band(unit_gbp, query, price_type=pt)
+        if not assessment.get("in_band"):
+            reasons = assessment.get("reasons") or []
+            # Soft (within 3×): flag but do not mark unreliable / hide
+            if assessment.get("soft_flag") or (
+                assessment.get("soft_guards") and not assessment.get("hard_guards")
+            ):
+                row["price_soft_flagged"] = True
+                row["price_flagged"] = True
+                row["price_flag_reasons"] = list(
+                    dict.fromkeys(
+                        (row.get("price_flag_reasons") or [])
+                        + [f"soft_{r}" for r in reasons]
+                    )
+                )
+                band = assessment.get("band") or {}
+                row["price_outlier_reason"] = (
+                    f"soft flag: unit ≈ £{unit_gbp:.2f} within 3× of "
+                    f"{band.get('table')} band £{band.get('floor_gbp')}–£{band.get('ceiling_gbp')}"
+                )
+            else:
+                row["price_outlier"] = True
+                row["price_implausible"] = True
+                row["price_flagged"] = True
+                row["price_flag_reasons"] = list(
+                    dict.fromkeys((row.get("price_flag_reasons") or []) + list(reasons))
+                )
+                band = assessment.get("band") or {}
+                row["price_outlier_reason"] = (
+                    f"unit ≈ £{unit_gbp:.2f} outside category band "
+                    f"£{band.get('floor_gbp')}–£{band.get('ceiling_gbp')} "
+                    f"({band.get('id')}/{band.get('table')})"
+                )
+                row["counts_as_live_listing"] = False
+                row["unit_price_unreliable"] = True
+    # Keep legacy USD soft bands as additional signal
     return _apply_category_bands(rows, query)
 
 

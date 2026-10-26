@@ -177,6 +177,78 @@ def _blob(listing: dict[str, Any]) -> str:
     return " ".join(parts).lower()
 
 
+_WEAK_QUERY_TOKENS = frozenset(
+    {
+        "bulk",
+        "pack",
+        "unit",
+        "units",
+        "wholesale",
+        "supplier",
+        "suppliers",
+        "blank",
+        "set",
+        "sets",
+        "box",
+        "case",
+        "cases",
+        "with",
+        "from",
+        "for",
+        "the",
+        "and",
+        "non",
+        "slip",
+        "cash",
+        "carry",
+        "known",
+        "product",
+        "item",
+        "items",
+        "order",
+        "buy",
+        "uk",
+    }
+)
+
+
+def key_product_nouns(query: str) -> list[str]:
+    """
+    Significant product nouns from the query that must appear in the listing TITLE.
+    Drops weak fillers; keeps the last 1–2 content tokens (product head + qualifier).
+    Brand-like leading tokens (e.g. nisbets) are optional and omitted from the require set
+    when ≥2 content tokens remain after the first.
+    """
+    q = str(query or "").lower()
+    toks = [
+        t
+        for t in re.split(r"\W+", q)
+        if len(t) >= 4 and t not in _WEAK_QUERY_TOKENS
+    ]
+    if not toks:
+        return []
+    if len(toks) == 1:
+        return toks
+    # Drop leading brand/site token when we still have ≥2 product nouns
+    # e.g. "nisbets catering foil rolls" → foil, rolls (catering kept if only 3)
+    content = toks[1:] if len(toks) >= 3 else toks
+    # Require the last two content nouns (product + form)
+    if len(content) >= 2:
+        return content[-2:]
+    return content
+
+
+def title_has_key_product_nouns(listing: dict[str, Any], query: str) -> bool:
+    """ALL rows (retail + UK + wholesale) must carry key product nouns in the title."""
+    nouns = key_product_nouns(query)
+    if not nouns:
+        return True
+    title = str(listing.get("title") or "").lower()
+    if not title.strip():
+        return False
+    return all(n in title for n in nouns)
+
+
 def _is_product_url(link: str) -> bool:
     u = (link or "").lower()
     return bool(re.search(r"/product-detail/|/products?/|/proddetail|/item/|/itm/|/dp/", u))
@@ -208,6 +280,10 @@ def listing_relevant_to_query(listing: dict[str, Any], query: str) -> bool:
     if listing.get("spec_misses"):
         return False
     if listing.get("price_outlier") or listing.get("unit_price_unreliable"):
+        return False
+
+    # Key product nouns must appear in the TITLE for every row (retail + UK + wholesale)
+    if not title_has_key_product_nouns(listing, query):
         return False
 
     # Wired audio query → drop Bluetooth / TWS / wireless-only titles
@@ -246,6 +322,15 @@ def listing_relevant_to_query(listing: dict[str, Any], query: str) -> bool:
 
 
 def is_priced_product_listing(listing: dict[str, Any]) -> bool:
+    # UK Shopping retail comps with a usable SERP price enter the comparison
+    # pool (never Best) even though they are not product-detail pages.
+    if listing.get("uk_retail_priced") and listing.get("counts_as_priced_comparison"):
+        price = str(listing.get("price") or listing.get("extracted_price") or "")
+        if re.match(r"^(see listing|n/?a)$", price, re.I):
+            return False
+        if listing.get("unit_price_rejected"):
+            return False
+        return parse_money(price) is not None
     if listing.get("counts_as_live_listing") is False:
         return False
     if listing.get("is_product_page") is False:
@@ -309,8 +394,10 @@ def filter_relevant_priced_listings(
             item["counts_as_live_listing"] = False
             dropped.append(item)
             continue
-        # Bulk: retail shelf prices must not enter the relevant/wholesale pool
-        if is_bulk and (
+        # Bulk: retail shelf prices must not enter the wholesale pool —
+        # except UK Shopping comps that carry a usable extracted_price
+        # (counted as priced retail/unit; never Best).
+        if is_bulk and not item.get("uk_retail_priced") and (
             item.get("sourcing_action") == "ask_bulk_quote"
             or item.get("channel") == "retail"
         ):
@@ -326,15 +413,57 @@ def filter_relevant_priced_listings(
             item["drop_reason"] = "off_category"
             dropped.append(item)
             continue
-        item["counts_as_live_listing"] = True
+        if item.get("uk_retail_priced") or item.get("price_type") == "retail":
+            item["counts_as_live_listing"] = False
+            item["counts_as_priced_comparison"] = True
+            item["best_pick_eligible"] = False
+            item["price_type"] = item.get("price_type") or "retail"
+            item["sourcing_note"] = item.get("sourcing_note") or (
+                "single-unit retail price; confirm quantity limits and bulk discount"
+            )
+        else:
+            item["counts_as_live_listing"] = True
         kept.append(item)
 
     # Outlier + implausible metal check only among category-relevant peers
     kept = annotate_price_outliers(kept, query=query)
     still_kept: list[dict[str, Any]] = []
     for item in kept:
-        if item.get("price_outlier") or item.get("unit_price_unreliable") or item.get("implausible_metal"):
-            item["drop_reason"] = "price_outlier"
+        # Unpriced UK Shopping review-only rows stay out of comps
+        if item.get("price_review_only") and not item.get("uk_retail_priced"):
+            item["drop_reason"] = "uk_seller_review_only"
+            item["counts_as_live_listing"] = False
+            item["best_pick_eligible"] = False
+            dropped.append(item)
+            continue
+        if item.get("is_uk_shopping_seller") and not item.get("uk_retail_priced"):
+            item["drop_reason"] = "uk_seller_review_only"
+            item["counts_as_live_listing"] = False
+            item["best_pick_eligible"] = False
+            dropped.append(item)
+            continue
+        if item.get("uk_retail_priced"):
+            item["best_pick_eligible"] = False
+            # Keep retail comps in the pool; category/order guards hide absurd
+            # landeds later. Only drop hard needs_quote / metal nonsense.
+            if item.get("implausible_metal") or (
+                item.get("needs_quote") and not item.get("uk_has_usable_price")
+            ):
+                item["drop_reason"] = "needs_quote" if item.get("needs_quote") else "price_outlier"
+                item["counts_as_live_listing"] = False
+                dropped.append(item)
+                continue
+            # Category-band flags still flow into landed via price_flagged
+            still_kept.append(item)
+            continue
+        if (
+            item.get("price_outlier")
+            or item.get("price_flagged")
+            or item.get("unit_price_unreliable")
+            or item.get("implausible_metal")
+            or item.get("needs_quote")
+        ):
+            item["drop_reason"] = "price_outlier" if not item.get("needs_quote") else "needs_quote"
             item["counts_as_live_listing"] = False
             if item.get("price_outlier_reason") and not item.get("rank_reason"):
                 item["rank_reason"] = item["price_outlier_reason"]
@@ -347,31 +476,36 @@ def filter_relevant_priced_listings(
         "relevant_priced_count": len(kept),
         "dropped_count": len(dropped),
         "no_good_matches": len(kept) < 2,
-        "outlier_dropped": sum(1 for d in dropped if d.get("drop_reason") == "price_outlier"),
+        "outlier_dropped": sum(
+            1 for d in dropped if d.get("drop_reason") in ("price_outlier", "needs_quote")
+        ),
         "spec_dropped": sum(1 for d in dropped if d.get("drop_reason") == "must_have_miss"),
         "retail_dropped": sum(1 for d in dropped if d.get("drop_reason") == "retail_in_bulk"),
+        "uk_seller_review_only": sum(
+            1 for d in dropped if d.get("drop_reason") == "uk_seller_review_only"
+        ),
+        "uk_retail_priced_count": sum(
+            1 for k in kept if k.get("uk_retail_priced")
+        ),
     }
     return kept, dropped, meta
 
 
 def no_good_matches_verdict(query: str, *, dropped: int = 0) -> dict[str, Any]:
+    reason = (
+        f"No good matches for “{query}”. "
+        f"Fewer than 2 relevant product-detail listings with a parseable unit price"
+        + (f" ({dropped} off-category or storefront rows dropped)" if dropped else "")
+        + ". Refine your query (e.g. “USB wall charger adapter wholesale”)."
+    )
     return {
         "verdict": "NO_MATCH",
-        "winner": {
-            "title": "",
-            "vendor": "",
-            "price": "",
-            "link": "",
-            "reason": (
-                f"No good matches for “{query}”. "
-                f"Fewer than 2 relevant product-detail listings with a parseable unit price"
-                + (f" ({dropped} off-category or storefront rows dropped)" if dropped else "")
-                + ". Refine your query (e.g. “USB wall charger adapter wholesale”)."
-            ),
-        },
+        # NO_MATCH must not surface a supplier as winner
+        "winner": None,
         "summary": (
             f"No good matches for “{query}”. Refine your query — we will not invent a Best pick."
         ),
+        "no_match_reason": reason,
         "alternatives": [],
         "agent_breakdown": {
             "thrift_advocate": "Insufficient relevant product pages to recommend a buy.",

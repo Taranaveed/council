@@ -21,7 +21,7 @@ class DebateMessage(BaseModel):
 class DebateContext(BaseModel):
     debate_id: str
     thesis: str
-    model: str = "llama-3.3-70b-versatile"
+    model: str = "openai/gpt-oss-120b"
     max_rounds: int = 3
     current_round: int = 0
     transcript: List[DebateMessage] = []
@@ -60,4 +60,4 @@ class DebateContext(BaseModel):
 class DebateRequest(BaseModel):
     thesis: str
     max_rounds: int = Field(default=3, ge=1, le=10)
-    model: str = "llama-3.3-70b-versatile"
+    model: str = "openai/gpt-oss-120b"

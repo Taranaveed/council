@@ -1,0 +1,53 @@
+{
+  "recorded_at": "20261026T105209Z",
+  "query": "asdf qwer zxcv notaproduct",
+  "query_id": "28",
+  "gl": "uk",
+  "mode": "bulk",
+  "currency": "GBP",
+  "city": "London",
+  "quantity_note": "Plausible fake-product fixture: junk shopping titles that must NO_MATCH",
+  "cache_key": "asdf qwer zxcv notaproduct|uk|bulk|GBP",
+  "serpapi_searches": 0,
+  "warning": "SerpApi returned zero usable seller prices for this query (gl=uk)",
+  "synthetic_junk": true,
+  "listings": [],
+  "listings_raw": [
+    {
+      "title": "Purple LED Desk Lamp USB Powered Modern",
+      "merchant": "Amazon.co.uk",
+      "source": "Amazon.co.uk",
+      "price": "\u00a319.99",
+      "extracted_price": 19.99,
+      "link": "https://www.google.com/search?ibp=oshop&q=junk1",
+      "is_shopping_offer": true,
+      "host": "google.com"
+    },
+    {
+      "title": "Wireless Bluetooth Earphones TWS Bulk",
+      "merchant": "eBay - gadgetshop",
+      "source": "eBay - gadgetshop",
+      "price": "\u00a38.50",
+      "extracted_price": 8.5,
+      "link": "https://www.google.com/search?ibp=oshop&q=junk2",
+      "is_shopping_offer": true,
+      "host": "google.com"
+    },
+    {
+      "title": "Stainless Steel Water Bottle 500ml",
+      "merchant": "Argos",
+      "source": "Argos",
+      "price": "\u00a312.00",
+      "extracted_price": 12,
+      "link": "https://www.google.com/search?ibp=oshop&q=junk3",
+      "is_shopping_offer": true,
+      "host": "google.com"
+    },
+    {
+      "title": "Custom Logo Phone Case Soft TPU",
+      "merchant": null,
+      "price": "\\.45",
+      "link": "https://www.alibaba.com/product-detail/phone-case_1.html"
+    }
+  ]
+}

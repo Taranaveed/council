@@ -89,6 +89,7 @@ async def run_agent_debate(
                     _build(system_prompt, user_content, plain_prose=True),
                     model=MODEL,
                     max_tokens=agent_max_tokens,
+                    temperature=0.75,
                 )
                 if not str(reply or "").strip():
                     reply = (

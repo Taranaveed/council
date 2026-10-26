@@ -194,11 +194,17 @@ class DealFinderRequest(BaseModel):
 
     max_budget: Optional[str] = None
 
+    currency: Optional[str] = None
+
     marketplace: str = "local_retailers"
 
     quantity: Optional[int] = Field(default=None, ge=1, le=100000)
 
     buying_mode: str = Field(default="retail")  # retail | bulk
+
+    buyer_vat_registered: Optional[bool] = None
+
+    commodity_code: Optional[str] = Field(default=None, max_length=16)
 
 
 
@@ -220,6 +226,20 @@ class DealFinderResponse(BaseModel):
 
     negotiation_script: list[str] = []
 
+    negotiation_message: Optional[str] = None
+
     buy_checklist: list[str] = []
+
+    query_meta: Optional[dict[str, Any]] = None
+
+    brief_id: Optional[int] = None
+
+    compare_to_prior: Optional[dict[str, Any]] = None
+
+    supplier_table: list[dict[str, Any]] = []
+
+    export_text: Optional[str] = None
+
+    credits: Optional[dict[str, Any]] = None
 
 

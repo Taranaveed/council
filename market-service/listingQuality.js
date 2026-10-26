@@ -754,3 +754,50 @@ export function filterAndRankListings(
     })
     .slice(0, limit);
 }
+
+
+/** Prefer a mix of Shopping vs wholesale so one source type cannot fill the whole cap. */
+export function reserveSourceSlots(listings, { limit = 16, shoppingSlots = 8, wholesaleSlots = 6 } = {}) {
+  const rows = Array.isArray(listings) ? listings.slice() : [];
+  const shopping = [];
+  const wholesale = [];
+  const other = [];
+  for (const row of rows) {
+    if (!row) continue;
+    const link = String(row.link || "").toLowerCase();
+    const channel = String(row.channel || "").toLowerCase();
+    const isShop =
+      row.is_shopping_offer ||
+      channel === "uk_retail_shopping" ||
+      channel === "retail" ||
+      /google\.[^/]+\/search/.test(link) ||
+      /ibp=oshop|udm=28/.test(link);
+    const isWh =
+      row.wholesale ||
+      isWholesaleHost(link) ||
+      /alibaba\.|dhgate\.|made-in-china\.|indiamart\.|europages\.|globalsources\.|1688\./.test(link);
+    if (isShop) shopping.push(row);
+    else if (isWh) wholesale.push(row);
+    else other.push(row);
+  }
+  const seen = new Set();
+  const out = [];
+  const take = (arr, n) => {
+    for (const row of arr) {
+      if (out.length >= limit || n <= 0) break;
+      const k = String(row.link || row.title || "");
+      if (k && seen.has(k)) continue;
+      if (k) seen.add(k);
+      out.push(row);
+      n -= 1;
+    }
+  };
+  take(shopping, shoppingSlots);
+  take(wholesale, wholesaleSlots);
+  const remaining = Math.max(0, limit - out.length);
+  take(other, remaining);
+  take(shopping, remaining);
+  take(wholesale, remaining);
+  take(other, remaining);
+  return out.slice(0, limit);
+}

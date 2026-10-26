@@ -1,0 +1,1350 @@
+{
+  "recorded_at": "20261026T005657Z",
+  "query": "allen keys",
+  "query_id": "13",
+  "gl": "uk",
+  "mode": "bulk",
+  "currency": "GBP",
+  "city": "Manchester",
+  "quantity_note": "Order qty is NOT part of the market fetch/cache; apply MOQ/tiers after loading this fixture.",
+  "cache_key": "allen keys|uk|bulk|GBP",
+  "serpapi_searches": 4,
+  "warning": "Opened 1 seller page(s) to read live prices. Compared 10 wholesale supplier listing(s) (Alibaba, DHgate). Best cheap pick for this region: Alibaba — best available (limited local supply). Some listing pages blocked price reading.",
+  "listings": [
+    {
+      "title": "Product Not Available",
+      "price": "$0.99",
+      "vendor": "Alibaba",
+      "link": "https://www.alibaba.com/product-detail/Stahlwille-Ball-Ended-Allen-Keys-for_12000001948983.html",
+      "price_source": "page",
+      "wholesale": true,
+      "supplier_id": "alibaba",
+      "supplier_type": "factory",
+      "supplier_origin": "CN",
+      "moq": 18,
+      "moq_source": "tier_min",
+      "price_tiers": [
+        {
+          "min_qty": 18,
+          "max_qty": 1,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 19,
+          "max_qty": 1,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 19,
+          "max_qty": 1,
+          "unit_price": "$7.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 100,
+          "max_qty": null,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 460,
+          "max_qty": 3,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 10011,
+          "max_qty": 4,
+          "unit_price": "$3.00",
+          "currency": "USD",
+          "source": "extracted"
+        }
+      ],
+      "tiers_source": "page",
+      "warranty": "guaranteed delivery, money-back guarantee, and after-sales protections\",\"undue_tpl_helpers.",
+      "warranty_source": "page",
+      "policy_links": [],
+      "policy_links_source": "page_checked_absent",
+      "variants": [
+        {
+          "label": "Apply"
+        },
+        {
+          "label": "Payment Terms"
+        },
+        {
+          "label": "WhatsApp"
+        },
+        {
+          "label": "a coupon worth up to {0}"
+        }
+      ],
+      "variants_source": "page",
+      "is_product_page": true,
+      "page_facts_fetched": true,
+      "unit_price_verified": true,
+      "has_moq": true,
+      "has_price_tier": true,
+      "unit_basis": "per_piece",
+      "tiers_reliable": true,
+      "counts_as_live_listing": true,
+      "currency": "USD",
+      "currency_expected": "GBP",
+      "currency_mismatch": true,
+      "price_local_approx": "≈ £0.78",
+      "_unitUsd": 0.99,
+      "_supplier": {
+        "id": "alibaba",
+        "host": "alibaba.com",
+        "vendor": "Alibaba",
+        "type": "factory",
+        "origin": "CN",
+        "regions": [
+          "global",
+          "pk",
+          "in",
+          "ae",
+          "us",
+          "uk",
+          "gb",
+          "ca",
+          "asia"
+        ],
+        "productRe": {}
+      },
+      "unit_usd": 0.99,
+      "best_pick": true,
+      "pick_reason": "best available (limited local supply)"
+    },
+    {
+      "title": "L Wrench Set 9pcs Metric & Inch Allen Keys",
+      "price": "See listing",
+      "vendor": "DHgate",
+      "link": "https://in.dhgate.com/product/9pcs-metric-inch-l-wrench-size-allen-key/1101362974.html",
+      "price_source": "pending",
+      "wholesale": true,
+      "supplier_id": "dhgate",
+      "supplier_type": "small-lot",
+      "supplier_origin": "CN",
+      "is_product_page": true,
+      "unit_basis": "per_piece",
+      "tiers_reliable": true,
+      "has_price_tier": false,
+      "has_moq": false,
+      "page_facts_fetched": false,
+      "counts_as_live_listing": false,
+      "currency": "USD",
+      "currency_expected": "GBP",
+      "currency_mismatch": true,
+      "price_local_approx": null,
+      "needs_price_confirm": true,
+      "moq": null,
+      "moq_source": "not_on_snippet",
+      "moq_display": "MOQ not confirmed — verify on seller page",
+      "_unitUsd": null,
+      "_supplier": {
+        "id": "dhgate",
+        "host": "dhgate.com",
+        "vendor": "DHgate",
+        "type": "small-lot",
+        "origin": "CN",
+        "regions": [
+          "global",
+          "pk",
+          "in",
+          "us",
+          "uk",
+          "gb",
+          "ca",
+          "ae",
+          "eu",
+          "asia"
+        ],
+        "productRe": {}
+      },
+      "unit_usd": null,
+      "best_pick": false,
+      "pick_reason": "ships / sources closer to the buyer"
+    },
+    {
+      "title": "FUTE 9-Piece Long Arm Hex Key Set - 1.5mm to 10mm ...",
+      "price": "See listing",
+      "vendor": "DHgate",
+      "link": "https://in.dhgate.com/product/fute-allen-key-set-l-wrench-kit-for-allen/1068170768.html",
+      "price_source": "pending",
+      "wholesale": true,
+      "supplier_id": "dhgate",
+      "supplier_type": "small-lot",
+      "supplier_origin": "CN",
+      "is_product_page": true,
+      "unit_basis": "per_piece",
+      "tiers_reliable": true,
+      "has_price_tier": false,
+      "has_moq": false,
+      "page_facts_fetched": false,
+      "counts_as_live_listing": false,
+      "currency": "USD",
+      "currency_expected": "GBP",
+      "currency_mismatch": true,
+      "price_local_approx": null,
+      "needs_price_confirm": true,
+      "moq": null,
+      "moq_source": "not_on_snippet",
+      "moq_display": "MOQ not confirmed — verify on seller page",
+      "_unitUsd": null,
+      "_supplier": {
+        "id": "dhgate",
+        "host": "dhgate.com",
+        "vendor": "DHgate",
+        "type": "small-lot",
+        "origin": "CN",
+        "regions": [
+          "global",
+          "pk",
+          "in",
+          "us",
+          "uk",
+          "gb",
+          "ca",
+          "ae",
+          "eu",
+          "asia"
+        ],
+        "productRe": {}
+      },
+      "unit_usd": null,
+      "best_pick": false,
+      "pick_reason": "ships / sources closer to the buyer"
+    },
+    {
+      "title": "T Shaped Torx Spanners Ball Head Allen Wrenches Hex... ...",
+      "price": "See listing",
+      "vendor": "DHgate",
+      "link": "https://www.dhgate.com/product/t-shaped-torx-spanner-t-shaped-ball-head/1004077552.html",
+      "price_source": "pending",
+      "wholesale": true,
+      "supplier_id": "dhgate",
+      "supplier_type": "small-lot",
+      "supplier_origin": "CN",
+      "is_product_page": true,
+      "unit_basis": "per_piece",
+      "tiers_reliable": true,
+      "has_price_tier": false,
+      "has_moq": false,
+      "page_facts_fetched": false,
+      "counts_as_live_listing": false,
+      "currency": "USD",
+      "currency_expected": "GBP",
+      "currency_mismatch": true,
+      "price_local_approx": null,
+      "needs_price_confirm": true,
+      "moq": null,
+      "moq_source": "not_on_snippet",
+      "moq_display": "MOQ not confirmed — verify on seller page",
+      "_unitUsd": null,
+      "_supplier": {
+        "id": "dhgate",
+        "host": "dhgate.com",
+        "vendor": "DHgate",
+        "type": "small-lot",
+        "origin": "CN",
+        "regions": [
+          "global",
+          "pk",
+          "in",
+          "us",
+          "uk",
+          "gb",
+          "ca",
+          "ae",
+          "eu",
+          "asia"
+        ],
+        "productRe": {}
+      },
+      "unit_usd": null,
+      "best_pick": false,
+      "pick_reason": "ships / sources closer to the buyer"
+    }
+  ],
+  "listings_raw": [
+    {
+      "link": "https://www.alibaba.com/product-detail/M3-Nickel-Plated-L-Type-Allen_1600913906699.html",
+      "host": "alibaba.com",
+      "title": "M3 Nickel Plated L Type Allen Key Hex Keys Square Allen Wrench L Shape Hex Wrench L-type Allen Hex Key - Buy Product on Alibaba.com",
+      "snippet": "",
+      "vendor": "Alibaba",
+      "price": "$0.02",
+      "price_text": "$0.02",
+      "currency": "USD",
+      "price_source": "page",
+      "price_tiers": [
+        {
+          "min_qty": 5,
+          "max_qty": 1,
+          "unit_price": "$5.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 6,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 8,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 18,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 48,
+          "max_qty": 4,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 60,
+          "max_qty": 6,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 113,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 114,
+          "max_qty": 3,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 145,
+          "max_qty": 4,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 148,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 185,
+          "max_qty": 6,
+          "unit_price": "$3.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 205,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 220,
+          "max_qty": 5,
+          "unit_price": "$4.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 260,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 324,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 500,
+          "max_qty": 499,
+          "unit_price": "$9.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 784,
+          "max_qty": 3,
+          "unit_price": "$6.82",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 813,
+          "max_qty": 55,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 55619,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 94476,
+          "max_qty": 5,
+          "unit_price": "$0.40",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 102477,
+          "max_qty": 17,
+          "unit_price": "$9.20",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 105905,
+          "max_qty": 25,
+          "unit_price": "$1.98",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 192381,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 258286,
+          "max_qty": 2,
+          "unit_price": "$3.33",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 578286,
+          "max_qty": 1,
+          "unit_price": "$8.58",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 592381,
+          "max_qty": 22,
+          "unit_price": "$7.94",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629333,
+          "max_qty": 5,
+          "unit_price": "$1.15",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629714,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 895619,
+          "max_qty": 5,
+          "unit_price": "$4.27",
+          "currency": "USD",
+          "source": "extracted"
+        }
+      ],
+      "moq": 5,
+      "moq_source": "tier_min",
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://www.alibaba.com/product-detail/High-Carbon-Steel-L-Shaped-Allen_1601766156930.html",
+      "host": "alibaba.com",
+      "title": "High Carbon Steel L Shaped Allen Keys Hardened Hex Wrenches For Daily Furniture Assembly Repair Work 6.5mm Allen Key - Buy Product on Alibaba.com",
+      "snippet": "",
+      "vendor": "Alibaba",
+      "price": "$0.01",
+      "price_text": "$0.01",
+      "currency": "USD",
+      "price_source": "page",
+      "price_tiers": [
+        {
+          "min_qty": 6,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 8,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 18,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 48,
+          "max_qty": 4,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 60,
+          "max_qty": 6,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 113,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 114,
+          "max_qty": 3,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 145,
+          "max_qty": 4,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 148,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 185,
+          "max_qty": 6,
+          "unit_price": "$3.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 205,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 220,
+          "max_qty": 5,
+          "unit_price": "$4.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 260,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 324,
+          "max_qty": 11,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 784,
+          "max_qty": 3,
+          "unit_price": "$6.82",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 813,
+          "max_qty": 55,
+          "unit_price": "$2.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 5000,
+          "max_qty": 999,
+          "unit_price": "$9.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 55619,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 94476,
+          "max_qty": 5,
+          "unit_price": "$0.40",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 102477,
+          "max_qty": 17,
+          "unit_price": "$9.20",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 105905,
+          "max_qty": 25,
+          "unit_price": "$1.98",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 192381,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 258286,
+          "max_qty": 2,
+          "unit_price": "$3.33",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 578286,
+          "max_qty": 1,
+          "unit_price": "$8.58",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 592381,
+          "max_qty": 22,
+          "unit_price": "$7.94",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629333,
+          "max_qty": 5,
+          "unit_price": "$1.15",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629714,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 895619,
+          "max_qty": 5,
+          "unit_price": "$4.27",
+          "currency": "USD",
+          "source": "extracted"
+        }
+      ],
+      "moq": 6,
+      "moq_source": "tier_min",
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://www.alibaba.com/product-detail/Torx-Star-2-3-6mm-Metric_1601536282724.html",
+      "host": "alibaba.com",
+      "title": "Torx Star 2/3/6mm Metric Diy Grade Ss Hex Allen Key Wrench With Square Ball Head Customized Oem Support New Oem - Buy Product on Alibaba.com",
+      "snippet": "",
+      "vendor": "Alibaba",
+      "price": "$6.63",
+      "price_text": "$6.63",
+      "currency": "USD",
+      "price_source": "page",
+      "price_tiers": [
+        {
+          "min_qty": 2,
+          "max_qty": 3,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 6,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 8,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 18,
+          "max_qty": 6,
+          "unit_price": "$6.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 48,
+          "max_qty": 4,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 500,
+          "max_qty": 89,
+          "unit_price": "$9.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 784,
+          "max_qty": 3,
+          "unit_price": "$6.82",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 55619,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 94476,
+          "max_qty": 5,
+          "unit_price": "$0.40",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 102477,
+          "max_qty": 17,
+          "unit_price": "$9.20",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 105905,
+          "max_qty": 25,
+          "unit_price": "$1.98",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 192381,
+          "max_qty": 4,
+          "unit_price": "$6.76",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 258286,
+          "max_qty": 2,
+          "unit_price": "$3.33",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 578286,
+          "max_qty": 1,
+          "unit_price": "$8.58",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 592381,
+          "max_qty": 22,
+          "unit_price": "$7.94",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629333,
+          "max_qty": 5,
+          "unit_price": "$1.15",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 629714,
+          "max_qty": 2,
+          "unit_price": "$4.19",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 895619,
+          "max_qty": 5,
+          "unit_price": "$4.27",
+          "currency": "USD",
+          "source": "extracted"
+        }
+      ],
+      "moq": 500,
+      "moq_source": "page",
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://www.alibaba.com/product-detail/Stahlwille-Ball-Ended-Allen-Keys-for_12000001948983.html",
+      "host": "alibaba.com",
+      "title": "Product Not Available",
+      "snippet": "",
+      "vendor": "Alibaba",
+      "price": "$0.99",
+      "price_text": "$0.99",
+      "currency": "USD",
+      "price_source": "page",
+      "price_tiers": [
+        {
+          "min_qty": 18,
+          "max_qty": 1,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 19,
+          "max_qty": 1,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 19,
+          "max_qty": 1,
+          "unit_price": "$7.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 100,
+          "max_qty": null,
+          "unit_price": "$1.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 460,
+          "max_qty": 3,
+          "unit_price": "$8.00",
+          "currency": "USD",
+          "source": "extracted"
+        },
+        {
+          "min_qty": 10011,
+          "max_qty": 4,
+          "unit_price": "$3.00",
+          "currency": "USD",
+          "source": "extracted"
+        }
+      ],
+      "moq": 18,
+      "moq_source": "tier_min",
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://in.dhgate.com/product/9pcs-metric-inch-l-wrench-size-allen-key/1101362974.html",
+      "host": "in.dhgate.com",
+      "title": "L Wrench Set 9pcs Metric & Inch Allen Keys",
+      "snippet": "",
+      "vendor": "DHgate",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "USD",
+      "price_source": "pending",
+      "price_tiers": null,
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://in.dhgate.com/product/fute-allen-key-set-l-wrench-kit-for-allen/1068170768.html",
+      "host": "in.dhgate.com",
+      "title": "FUTE 9-Piece Long Arm Hex Key Set - 1.5mm to 10mm ...",
+      "snippet": "",
+      "vendor": "DHgate",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "USD",
+      "price_source": "pending",
+      "price_tiers": null,
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://www.dhgate.com/product/t-shaped-torx-spanner-t-shaped-ball-head/1004077552.html",
+      "host": "dhgate.com",
+      "title": "T Shaped Torx Spanners Ball Head Allen Wrenches Hex... ...",
+      "snippet": "",
+      "vendor": "DHgate",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "USD",
+      "price_source": "pending",
+      "price_tiers": null,
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:6542034918527110957,productid:1901392918872985049,headlineOfferDocid:263896396308897593,imageDocid:12498432261720753164,rds:PC_4649046985771671976|PROD_PC_4649046985771671976,gpcid:4649046985771671976,mid:576462723561615576,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Forge Steel Metric Hex Key 10 Piece Set 178xg",
+      "snippet": "",
+      "vendor": "Screwfix.com",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:15978307162343968136,productid:2346522887334589150,headlineOfferDocid:9753408550323804740,imageDocid:18332844770010328049,rds:PC_10899557804433191647|PROD_PC_10899557804433191647,gpcid:10899557804433191647,mid:576462402131143021,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Halfords Basic 6 Piece Allen Key Set",
+      "snippet": "",
+      "vendor": "Halfords",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:9318530244797869636,productid:1351408629040592643,headlineOfferDocid:9322607067457520737,imageDocid:8634960999465351956,gpcid:5543922821460923474,mid:576462476988639801,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "9 Piece Hex Key Set",
+      "snippet": "",
+      "vendor": "The Range",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:1183284221585640299,productid:429302727309294823,headlineOfferDocid:13001600663622466038,imageDocid:12150025006315563273,rds:PC_3660830972002004606|PROD_PC_3660830972002004606,gpcid:3660830972002004606,mid:576462671813846673,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Magnusson 8 piece Foldable Hex Key Set 1850v",
+      "snippet": "",
+      "vendor": "Screwfix.com",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:3278959104537336650,productid:5881329802672283879,headlineOfferDocid:1145080950516928948,imageDocid:7033223003755996354,rds:PC_134374007280133516|PROD_PC_134374007280133516,gpcid:134374007280133516,mid:576462810941839733,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Minotaur Short Arm Hex Key Set",
+      "snippet": "",
+      "vendor": "Toolstation",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:8583776199400315002,productid:15820959587498348931,headlineOfferDocid:15921881900711260334,imageDocid:5170336370525077462,rds:PC_9379106622569765130|PROD_PC_9379106622569765130,gpcid:9379106622569765130,mid:576462758440651598,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Magnusson Metric Hex key",
+      "snippet": "",
+      "vendor": "Screwfix.com",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:7276197727211312259,productid:6451021894923423660,headlineOfferDocid:11646851851995687402,imageDocid:4722828144819808674,rds:PC_6820113799224737879|PROD_PC_6820113799224737879,gpcid:6820113799224737879,mid:576462408597068122,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "10 Piece Hex key Set",
+      "snippet": "",
+      "vendor": "B&Q",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:12252922078534648958,productid:7353855104097356117,headlineOfferDocid:14868514723398234848,imageDocid:10489099189666744114,rds:PC_3866004809503316601|PROD_PC_3866004809503316601,gpcid:3866004809503316601,mid:576462381164836675,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Magnusson 30 piece Hex Key Set",
+      "snippet": "",
+      "vendor": "Screwfix.com",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:17045291424425663045,productid:9637489253677543181,headlineOfferDocid:14861173034366777637,imageDocid:6441604289330905530,rds:PC_12515282334552097549|PROD_PC_12515282334552097549,gpcid:12515282334552097549,mid:576462700162942966,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Draper Metric/Imperial Combined Hexagon Key Set",
+      "snippet": "",
+      "vendor": "Amazon.co.uk - Amazon.co.uk-Seller",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:17563150061679034360,productid:7192830006281332471,headlineOfferDocid:1229123614202089340,imageDocid:14208947185920695702,rds:PC_12846001102764458047|PROD_PC_12846001102764458047,gpcid:12846001102764458047,mid:576462567988639692,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Minotaur Folding Hex Key Set Metric",
+      "snippet": "",
+      "vendor": "Toolstation",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:2517889709498548129,productid:10897141429913818135,headlineOfferDocid:3440032586399883909,imageDocid:17516279154561076589,rds:PC_4418452425583986448|PROD_PC_4418452425583986448,gpcid:4418452425583986448,mid:576462821503382596,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Wera Hex-Plus L-Key Set",
+      "snippet": "",
+      "vendor": "Screwfix.com",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:16920280888911083087,productid:2701317073405499767,headlineOfferDocid:564241497807729520,imageDocid:16731644589448532711,rds:PC_15329219228965546029|PROD_PC_15329219228965546029,gpcid:15329219228965546029,mid:576462700129486355,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Amtech 10pc T-Handle Hex Key Set",
+      "snippet": "",
+      "vendor": "Euro Car Parts",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:15051549210090740404,productid:11839170478069875001,headlineOfferDocid:4745507295691652272,imageDocid:8985156279263866721,rds:PC_45592478426859020|PROD_PC_45592478426859020,gpcid:45592478426859020,mid:576462601606733183,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Bahco BE-9770 Hexagon Key Set",
+      "snippet": "",
+      "vendor": "Power Tool World",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:14031518720244599010,productid:4576586359586590857,headlineOfferDocid:5682656748125944278,imageDocid:2726624775896360714,rds:PC_13426247538666725329|PROD_PC_13426247538666725329,gpcid:13426247538666725329,mid:576462445977104177,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Milwaukee Metric Folding Hex Key Set",
+      "snippet": "",
+      "vendor": "Screwfix.com",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:13585309808039456035,productid:10224399608367255442,headlineOfferDocid:8558591105422093541,imageDocid:16964236267705120506,rds:PC_5747238496784450190|PROD_PC_5747238496784450190,gpcid:5747238496784450190,mid:576462447224557317,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "Draper Soft Grip 'T' Handle Hexagon and Ball End Key Set",
+      "snippet": "",
+      "vendor": "Toolstation",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.google.com/search?ibp=oshop&q=allen keys&prds=catalogid:15222676243993148530,productid:17352083071157559205,headlineOfferDocid:18007066649851886956,imageDocid:10541079598556236523,rds:PC_1694103502067918379|PROD_PC_1694103502067918379,gpcid:1694103502067918379,mid:576462737585717167,pvt:hg&hl=en&gl=uk&udm=28",
+      "host": "google.com",
+      "title": "30 PIECE Hex Key Allen ALAN ALLAN keys LONG Set KIT WITH CASE Metric & Imperial",
+      "snippet": "",
+      "vendor": "Amazon.co.uk - Amazon.co.uk-Seller",
+      "price": "See listing",
+      "price_text": "See listing",
+      "currency": "GBP",
+      "price_source": "rejected_storefront",
+      "price_tiers": [],
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": null,
+      "wholesale": false
+    },
+    {
+      "link": "https://www.dhgate.com/product/double-head-phillips-allen-key-wrench-spanner/456127247.html",
+      "host": "dhgate.com",
+      "title": "500 Piece Double Head Phillips Allen Key Wrench Set",
+      "snippet": "",
+      "vendor": "DHgate",
+      "price": "$75",
+      "price_text": "$75",
+      "currency": "USD",
+      "price_source": "serp",
+      "price_tiers": null,
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    },
+    {
+      "link": "https://www.dhgate.com/product/screwdrivers-jewii-30pcs-hex-key-allen-wrench/889622569.html",
+      "host": "dhgate.com",
+      "title": "Screwdrivers Jewii 30Pcs Hex Key Allen Wrench 0.028\" 3 ...",
+      "snippet": "",
+      "vendor": "DHgate",
+      "price": "$175.30",
+      "price_text": "$175.30",
+      "currency": "USD",
+      "price_source": "snippet",
+      "price_tiers": null,
+      "moq": null,
+      "moq_source": null,
+      "pack_text": null,
+      "weight_text": null,
+      "package_weight_kg": null,
+      "package_weight_basis": null,
+      "supplier_origin": "CN",
+      "wholesale": true
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import json
 import re
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.models.focus_group import (
     FocusGroupRequest,
@@ -16,10 +16,11 @@ from app.agents.focus_group_prompts import (
     judge_prompt,
 )
 from app.utils.price_classifier import classify_price
+from app.core.auth import get_current_user
 
 router = APIRouter(prefix="/focus-group", tags=["focus-group"])
 
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 
 
 def _product_block(req: FocusGroupRequest) -> str:
@@ -54,7 +55,7 @@ def _extract_json(text: str) -> dict:
 
 
 @router.post("/run", response_model=FocusGroupResponse)
-async def run_focus_group(req: FocusGroupRequest):
+async def run_focus_group(req: FocusGroupRequest, _user: dict = Depends(get_current_user)):
     product = _product_block(req)
 
     currency = req.currency
@@ -67,8 +68,8 @@ async def run_focus_group(req: FocusGroupRequest):
             model=MODEL,
             max_tokens=220,
         )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Skeptic agent failed: {e}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="The agents could not finish this run. Try again shortly.")
 
     # ── Step 2: Bargain Hunter (sees product + Skeptic) ──────────────────────
     try:
@@ -80,8 +81,8 @@ async def run_focus_group(req: FocusGroupRequest):
             model=MODEL,
             max_tokens=220,
         )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Bargain Hunter agent failed: {e}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="The agents could not finish this run. Try again shortly.")
 
     # ── Step 3: Target Fan (sees product + Skeptic + Bargain Hunter) ─────────
     try:
@@ -93,8 +94,8 @@ async def run_focus_group(req: FocusGroupRequest):
             model=MODEL,
             max_tokens=220,
         )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Target Fan agent failed: {e}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="The agents could not finish this run. Try again shortly.")
 
     # ── Step 4: Judge (full transcript → JSON) ───────────────────────────────
     transcript_text = (
@@ -110,8 +111,8 @@ async def run_focus_group(req: FocusGroupRequest):
             temperature=0.2,
             json_mode=True,
         )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Judge agent failed: {e}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="The agents could not finish this run. Try again shortly.")
 
     parsed = _extract_json(judge_raw)
 

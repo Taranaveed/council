@@ -1,0 +1,117 @@
+{
+  "version": "uk_price_bands_v1",
+  "currency": "GBP",
+  "notes": "Unit-price floors/ceilings for UK bulk-ish deal-finder. Sources are working assumptions for guardrails — not HMRC or list prices. Tighten with observed page-verified comps.",
+  "default": {
+    "floor_gbp": 0.05,
+    "ceiling_gbp": 80.0,
+    "source_note": "Fallback band when no category match"
+  },
+  "categories": [
+    {
+      "id": "phone_accessories",
+      "match": "phone case|silicone phone cover|tempered glass|screen protector|memory stick|usb stick",
+      "floor_gbp": 0.10,
+      "ceiling_gbp": 25.0,
+      "source_note": "UK accessory retail/wholesale comps; screen protectors often £0.50–£8 unit in bulk"
+    },
+    {
+      "id": "cables",
+      "match": "usb c cable|usb-c|hdmi|cable",
+      "floor_gbp": 0.15,
+      "ceiling_gbp": 15.0,
+      "source_note": "Commodity USB-C cables typically well under £10/unit wholesale"
+    },
+    {
+      "id": "audio",
+      "match": "earphone|headphone|wired earphones",
+      "floor_gbp": 0.30,
+      "ceiling_gbp": 40.0,
+      "source_note": "Budget wired earphones wholesale often £0.50–£8"
+    },
+    {
+      "id": "bags",
+      "match": "tote bag|bag",
+      "floor_gbp": 0.40,
+      "ceiling_gbp": 25.0,
+      "source_note": "Plain cotton tote wholesale commonly £0.50–£8; designer/EVA outliers need quote"
+    },
+    {
+      "id": "home",
+      "match": "desk lamp|kitchen spatula|spatula",
+      "floor_gbp": 0.50,
+      "ceiling_gbp": 40.0,
+      "source_note": "Small homewares wholesale"
+    },
+    {
+      "id": "office_notebook",
+      "match": "notebook|notepad|exercise book",
+      "floor_gbp": 0.15,
+      "ceiling_gbp": 25.0,
+      "source_note": "Single notebook retail often £1–£15; £50+ may be multi-pack or premium journal"
+    },
+    {
+      "id": "office",
+      "match": "ballpoint|pen|stationery",
+      "floor_gbp": 0.03,
+      "ceiling_gbp": 4.0,
+      "source_note": "Ballpoint pens often £0.05–£1; £5+/pen at qty 1000 is almost always a pack/lot misread"
+    },
+    {
+      "id": "apparel",
+      "match": "t shirt|t-shirt|tee",
+      "floor_gbp": 0.80,
+      "ceiling_gbp": 20.0,
+      "source_note": "Blank tee wholesale"
+    },
+    {
+      "id": "tools",
+      "match": "allen keys|hex key|tool",
+      "floor_gbp": 0.20,
+      "ceiling_gbp": 25.0,
+      "source_note": "Hex key sets; sub-£0.20 often MOQ-tier pennies"
+    },
+    {
+      "id": "uk_wholesale_food",
+      "match": "rice|cash and carry|catering foil|disposable cups",
+      "floor_gbp": 0.40,
+      "ceiling_gbp": 40.0,
+      "source_note": "5kg rice bag retail ~£5–£15; four-figure unit prices are lots/pallets"
+    },
+    {
+      "id": "compliance_cosmetics",
+      "match": "lip gloss|makeup brush|cosmetic",
+      "floor_gbp": 0.15,
+      "ceiling_gbp": 12.0,
+      "source_note": "Bulk lip gloss tubes often £0.20–£3; £100+ usually shade-count or lot price"
+    },
+    {
+      "id": "compliance_toy",
+      "match": "soft toy|plush|toy",
+      "floor_gbp": 0.50,
+      "ceiling_gbp": 30.0,
+      "source_note": "Plush wholesale"
+    },
+    {
+      "id": "compliance_electrical",
+      "match": "extension lead|uk plug|power strip",
+      "floor_gbp": 1.0,
+      "ceiling_gbp": 35.0,
+      "source_note": "UK extension leads retail £5–£25; $1899/unit is not a single lead"
+    },
+    {
+      "id": "power",
+      "match": "power bank",
+      "floor_gbp": 1.5,
+      "ceiling_gbp": 45.0,
+      "source_note": "10Ah power banks wholesale often £3–£20"
+    },
+    {
+      "id": "jewelry",
+      "match": "necklace|ring|jewellery|jewelry",
+      "floor_gbp": 0.20,
+      "ceiling_gbp": 80.0,
+      "source_note": "Fashion jewelry; precious-metal claims handled separately"
+    }
+  ]
+}

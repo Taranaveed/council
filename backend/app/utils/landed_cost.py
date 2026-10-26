@@ -373,10 +373,28 @@ def _pick_tier(
 
     # Reject storefront / missing extracted unit prices
     if listing.get("unit_price_rejected") or str(listing.get("price_source") or "").lower() == "rejected_storefront":
-        return 0.0, card_cur, None, "rejected_storefront"
+        # UK Shopping retail comps keep a SERP extracted_price for comparison
+        if not (
+            listing.get("uk_retail_priced")
+            and listing.get("counts_as_priced_comparison")
+            and card_amt
+            and card_amt > 0
+        ):
+            return 0.0, card_cur, None, "rejected_storefront"
     if listing.get("price_outlier") or listing.get("unit_price_unreliable") or listing.get("implausible_metal"):
-        return 0.0, card_cur, None, "unreliable_price"
+        if not (
+            listing.get("uk_retail_priced")
+            and listing.get("counts_as_priced_comparison")
+            and card_amt
+            and card_amt > 0
+        ):
+            return 0.0, card_cur, None, "unreliable_price"
     if not listing.get("is_product_page", True) and listing.get("is_product_page") is False:
+        # Allow UK retail Shopping comps with a usable SERP unit price
+        if listing.get("uk_retail_priced") and listing.get("counts_as_priced_comparison"):
+            if card_amt and card_amt > 0:
+                return card_amt, card_cur, None, "uk_retail_serp_unit"
+            return 0.0, card_cur, None, "uk_retail_unpriced"
         return 0.0, card_cur, None, "not_product_page"
 
     tiers = listing.get("price_tiers")
@@ -590,14 +608,37 @@ def compute_landed_cost(
     """
     if not listing or not isinstance(listing, dict):
         return None
-    # Never compute primary landed totals from unreliable / implausible scrapes
+    # Never compute primary landed totals from unreliable / implausible scrapes.
+    # UK retail Shopping comps with a usable SERP price still go through the
+    # normal path so category/order guards can attach bound/trigger detail.
+    _uk_retail_ok = bool(
+        listing.get("uk_retail_priced") and listing.get("counts_as_priced_comparison")
+    )
     if (
-        listing.get("price_outlier")
-        or listing.get("unit_price_unreliable")
-        or listing.get("implausible_metal")
-        or listing.get("unit_price_rejected")
+        not _uk_retail_ok
+        and (
+            listing.get("price_outlier")
+            or listing.get("unit_price_unreliable")
+            or listing.get("implausible_metal")
+            or listing.get("unit_price_rejected")
+            or listing.get("price_implausible")
+            or listing.get("implausible_price")
+        )
     ):
-        return None
+        return {
+            "hide_landed": True,
+            "implausible_price": True,
+            "warning_implausible_price": str(
+                listing.get("price_outlier_reason")
+                or listing.get("unit_price_rejected")
+                or "Unit price flagged implausible — landed cost hidden."
+            ),
+            "quantity": int(quantity) if isinstance(quantity, int) and quantity > 0 else None,
+            "estimated_total": None,
+            "goods_amount": None,
+            "origin_country": None,
+            "is_import": None,
+        }
     qty = int(quantity) if isinstance(quantity, int) and quantity > 0 else None
     if qty is None:
         return None
@@ -646,6 +687,50 @@ def compute_landed_cost(
     if unit_amt <= 0:
         return None
 
+    # Pack/lot normalization (box of N / per 1000) before FX
+    from app.utils.pack_price import detect_pack_pricing, normalize_pack_unit_price
+
+    pack_meta = detect_pack_pricing(listing)
+    unit_amt, pack_norm = normalize_pack_unit_price(unit_amt, listing)
+    if pack_norm.get("normalized"):
+        tier_label = (
+            f"{tier_label}; pack÷{pack_norm.get('pack_units')} "
+            f"({pack_norm.get('pack_text')})"
+        )
+    elif pack_meta.get("price_may_be_per_pack") and not pack_meta.get("pack_units"):
+        return {
+            "hide_landed": True,
+            "price_may_be_per_pack": True,
+            "price_flagged": True,
+            "pack_text": pack_meta.get("pack_text"),
+            "price_flag_reasons": ["pack_unnormalized"],
+            "guards": [
+                {
+                    "rule": "pack_unnormalized",
+                    "bound": None,
+                    "bound_kind": "pack_units_unknown",
+                    "source_note": "Pack/lot language without countable N — cannot normalize to per-unit",
+                    "category_id": None,
+                    "trigger_price": str(listing.get("price") or ""),
+                    "trigger_kind": "price_text",
+                    "pack_text": pack_meta.get("pack_text"),
+                    "borderline": False,
+                }
+            ],
+            "warning_implausible_price": (
+                f"Price may be per pack/lot ({pack_meta.get('pack_text')}) — "
+                "landed cost hidden until per-unit price is confirmed."
+            ),
+            "quantity": qty,
+            "unit_price": str(listing.get("price") or ""),
+            "origin_country": infer_listing_origin(listing, get_profile(
+                location=location, country_code=country_code, currency=local_currency
+            ), origin_country=origin_country),
+            "is_import": True,
+            "estimated_total": None,
+            "goods_amount": None,
+        }
+
     # Primary range = verified unit × duty/freight band only (NOT unverified tier lows)
     unit_low_amt = unit_amt
     unit_high_amt = unit_amt
@@ -667,6 +752,38 @@ def compute_landed_cost(
     )
     if unit_local is None:
         return None
+
+    # Absolute floor + peer median handled upstream; also hide if listing pre-flagged.
+    # UK retail comps continue into band/order guards so bound/trigger detail is kept.
+    if (
+        not _uk_retail_ok
+        and (
+            listing.get("price_implausible")
+            or listing.get("implausible_price")
+            or listing.get("price_outlier")
+            or listing.get("unit_price_unreliable")
+        )
+    ):
+        return {
+            "hide_landed": True,
+            "implausible_price": True,
+            "warning_implausible_price": str(
+                listing.get("price_outlier_reason")
+                or "Unit price flagged implausible — landed cost hidden."
+            ),
+            "quantity": qty,
+            "unit_price": _fmt(unit_amt, unit_cur),
+            "unit_price_local": _fmt(unit_local, local),
+            "goods_amount": round(unit_local * qty, 2),
+            "origin_country": infer_listing_origin(
+                listing, profile, origin_country=origin_country
+            ),
+            "is_import": True,
+            "estimated_total": None,
+            "price_may_be_per_pack": bool(pack_meta.get("price_may_be_per_pack")),
+            "pack_text": pack_meta.get("pack_text"),
+        }
+
     unit_local_low = (
         _to_local(
             unit_low_amt, unit_cur, local, fx_meta_out=fx_trail, profile=profile
@@ -681,8 +798,121 @@ def compute_landed_cost(
     )
 
     line_local = unit_local * qty
+    # Invariant: displayed unit × qty == goods (lip gloss audit)
+    assert abs(line_local - (unit_local * qty)) < 1e-6
     line_low = unit_local_low * qty
     line_high = unit_local_high * qty
+
+    # Category ceiling + order-total cap (GBP bands only — convert when needed)
+    from app.utils.order_sanity import assess_order_total
+    from app.utils.price_bands import assess_category_band
+
+    query_hint = (
+        listing.get("_benchmark_query")
+        or listing.get("query")
+        or listing.get("search_query")
+    )
+    flag_reasons: list[str] = []
+    soft_reasons: list[str] = []
+    order_hit: dict = {"needs_quote": False, "guards": [], "hard_guards": [], "soft_guards": []}
+    band_hit: dict = {"guards": [], "hard_guards": [], "soft_guards": []}
+    price_type = str(listing.get("price_type") or "") or None
+    if listing.get("uk_retail_priced") and not price_type:
+        price_type = "retail"
+    soft_flag_meta: dict[str, Any] = {}
+    if local == "GBP" or str(query_hint or ""):
+        # Normalize unit/goods into GBP for band file (currency=GBP)
+        unit_gbp = unit_local
+        goods_gbp = line_local
+        if local != "GBP":
+            unit_gbp_conv = _to_local(unit_amt, unit_cur, "GBP", profile=profile)
+            if unit_gbp_conv is None:
+                goods_gbp = None
+            else:
+                unit_gbp = unit_gbp_conv
+                goods_gbp = unit_gbp * qty
+        # Only enforce when we have an explicit query context (benchmark / deal-finder)
+        if query_hint and goods_gbp is not None:
+            band_hit = assess_category_band(
+                unit_gbp, str(query_hint), price_type=price_type
+            )
+            order_hit = assess_order_total(
+                goods_gbp,
+                query=str(query_hint),
+                quantity=qty,
+                budget_gbp=float(budget) if budget is not None else None,
+                price_type=price_type,
+            )
+            # Hard = beyond 3× bound → hide; soft = within 3× → show with flag
+            hard_g = list(band_hit.get("hard_guards") or []) + list(
+                order_hit.get("hard_guards") or []
+            )
+            soft_g = list(band_hit.get("soft_guards") or []) + list(
+                order_hit.get("soft_guards") or []
+            )
+            if hard_g:
+                for g in hard_g:
+                    rule = g.get("rule") or ""
+                    bound = g.get("bound")
+                    if rule == "above_ceiling":
+                        flag_reasons.append(f"above_ceiling>{bound}")
+                    elif rule == "below_floor":
+                        flag_reasons.append(f"below_floor<{bound}")
+                    elif rule == "goods_over_cap":
+                        flag_reasons.append(f"goods_over_cap>{bound}")
+                    elif rule == "goods_over_budget":
+                        flag_reasons.append(f"goods_over_budget>{bound}")
+                    else:
+                        flag_reasons.append(str(rule))
+            elif soft_g:
+                for g in soft_g:
+                    rule = g.get("rule") or ""
+                    soft_reasons.append(f"soft_{rule}@{g.get('bound')}")
+                soft_flag_meta = {
+                    "price_soft_flagged": True,
+                    "price_flagged": True,
+                    "price_flag_reasons": soft_reasons,
+                    "guards": soft_g,
+                    "hide_landed": False,
+                    "warning_implausible_price": (
+                        f"Soft flag (within 3× bound): {', '.join(soft_reasons)} — "
+                        f"landed shown (unit_local={_fmt(unit_local, local)}, "
+                        f"goods={_fmt(line_local, local)})."
+                    ),
+                }
+    if flag_reasons:
+        guards = list(band_hit.get("hard_guards") or []) + list(
+            order_hit.get("hard_guards") or []
+        )
+        return {
+            "hide_landed": True,
+            "implausible_price": any(
+                "ceiling" in r or "floor" in r for r in flag_reasons
+            ),
+            "needs_quote": bool(order_hit.get("hard_guards")),
+            "price_flagged": True,
+            "price_soft_flagged": False,
+            "price_flag_reasons": flag_reasons,
+            "guards": guards,
+            "warning_implausible_price": (
+                f"Flagged: {', '.join(flag_reasons)} — landed hidden "
+                f"(unit_local={_fmt(unit_local, local)}, goods={_fmt(line_local, local)})."
+            ),
+            "quantity": qty,
+            "unit_price": _fmt(unit_amt, unit_cur),
+            "unit_price_local": _fmt(unit_local, local),
+            "goods_amount": round(line_local, 2),
+            "origin_country": infer_listing_origin(
+                listing, profile, origin_country=origin_country
+            ),
+            "is_import": True,
+            "estimated_total": None,
+            "price_may_be_per_pack": bool(pack_meta.get("price_may_be_per_pack")),
+            "pack_text": pack_meta.get("pack_text"),
+            "pack_units": pack_meta.get("pack_units"),
+        }
+    # Soft flags applied after full landed compute (row still shown)
+    _soft_carry = soft_flag_meta
 
     # Always rebuild assumptions for THIS listing (origin vs destination) — never reuse
     # a pool-wide foreign_factory bundle that would apply import duty to domestic rows.
@@ -712,6 +942,44 @@ def compute_landed_cost(
     tax_rate = float(duty_bundle["sales_tax_rate"])  # import VAT only
     domestic_vat_rate = float(duty_bundle.get("domestic_vat_rate") or 0.0)
     domestic_vat_in_mid = bool(duty_bundle.get("domestic_vat_in_mid"))
+
+    # Domestic VAT basis: retail shelf includes VAT; trade/B2B excludes.
+    from app.utils.vat_basis import apply_domestic_vat_basis, infer_price_includes_vat
+
+    vat_basis_meta: dict[str, Any] = {
+        "price_includes_vat": None,
+        "vat_basis": "unknown",
+        "vat_basis_unknown": True,
+        "vat_basis_note": None,
+    }
+    goods_shelf = line_local
+    if not foreign and domestic_vat_rate > 0:
+        includes = infer_price_includes_vat(listing, price_type=price_type)
+        vb = apply_domestic_vat_basis(
+            line_local,
+            vat_rate=domestic_vat_rate,
+            buyer_vat_registered=bool(duty_bundle.get("buyer_vat_registered")),
+            price_includes_vat=includes,
+        )
+        vat_basis_meta = {
+            "price_includes_vat": vb.get("price_includes_vat"),
+            "vat_basis": vb.get("vat_basis"),
+            "vat_basis_unknown": bool(vb.get("vat_basis_unknown")),
+            "vat_basis_note": vb.get("vat_basis_note"),
+        }
+        # Mid uses adjusted goods; band/order guards already used shelf goods_gbp
+        line_local = float(vb["goods_for_mid"])
+        line_low = line_local
+        line_high = line_local
+        domestic_vat_in_mid = bool(vb.get("domestic_vat_in_mid"))
+        # Stash amount for later (total_for adds only when domestic_vat_in_mid)
+        duty_bundle = {
+            **duty_bundle,
+            "domestic_vat_in_mid": domestic_vat_in_mid,
+            "domestic_vat_amount_override": float(vb.get("domestic_vat_amount") or 0.0),
+            "domestic_vat_reclaimable": bool(vb.get("domestic_vat_reclaimable")),
+            **vat_basis_meta,
+        }
 
     weight_info = resolve_unit_weight_kg(listing, foreign=foreign)
     weight_f = weight_info.get("kg")
@@ -778,7 +1046,10 @@ def compute_landed_cost(
         line_local, duty_mid, ship_band["mid"]
     )
     raw_high, _, _, _ = total_for(line_high, duty_high, ship_band["high"])
-    domestic_vat_amount = line_local * domestic_vat_rate if domestic_vat_rate else 0.0
+    if duty_bundle.get("domestic_vat_amount_override") is not None and not foreign:
+        domestic_vat_amount = float(duty_bundle["domestic_vat_amount_override"])
+    else:
+        domestic_vat_amount = line_local * domestic_vat_rate if domestic_vat_rate else 0.0
     # Min/max of the three assumption paths; mid = mid-assumption if inside, else midpoint
     total_low = min(raw_low, raw_mid, raw_high)
     total_high = max(raw_low, raw_mid, raw_high)
@@ -1008,11 +1279,29 @@ def compute_landed_cost(
         assumptions.append(
             f"MOQ not met: order qty {qty} < tier min {sel.get('lowest_min_qty')} — tier price not applied."
         )
-    if freight_dominates:
-        assumptions.append(
-            f"Warning: landed/goods ≈ {landed_goods_multiple:.1f}× (>3×) — "
-            "freight/weight or duty assumptions dominate; verify package weight and tiers."
+    warning_freight_minimum = None
+    warning_implausible_price = None
+    if minimum_freight_applied:
+        warning_freight_minimum = (
+            f"Small-order freight minimum applied "
+            f"({minimum_freight_info.get('label') or 'minimum inbound freight'}; "
+            f"not a carrier quote)."
         )
+        assumptions.append(f"Warning (freight minimum): {warning_freight_minimum}")
+    if freight_dominates:
+        # Distinguish freight-floor inflation from true implausible unit prices
+        if minimum_freight_applied and line_local > 0 and line_local < 50:
+            assumptions.append(
+                f"Warning (freight minimum): landed/goods ≈ {landed_goods_multiple:.1f}× "
+                "because the small-order freight floor dominates a tiny goods line — "
+                "not necessarily a bad unit price."
+            )
+        else:
+            warning_implausible_price = (
+                f"landed/goods ≈ {landed_goods_multiple:.1f}× (>3×) — "
+                "verify unit price, pack size, weight, and duty assumptions."
+            )
+            assumptions.append(f"Warning (implausible price/landed): {warning_implausible_price}")
     if weight_ignored:
         assumptions.append(
             str(weight_info.get("ignore_reason") or "")
@@ -1107,7 +1396,7 @@ def compute_landed_cost(
     if max_units_note:
         assumptions.append(max_units_note)
 
-    return {
+    out = {
         "quantity": qty,
         "tier_label": tier_label,
         "tier_min_qty": tier_moq,
@@ -1121,6 +1410,11 @@ def compute_landed_cost(
         "unit_price_local": _fmt(unit_local, local),
         "line_total": line_disp,
         "goods_amount": round(line_local, 2),
+        "goods_shelf_amount": round(float(goods_shelf), 2),
+        "price_includes_vat": vat_basis_meta.get("price_includes_vat"),
+        "vat_basis": vat_basis_meta.get("vat_basis"),
+        "vat_basis_unknown": bool(vat_basis_meta.get("vat_basis_unknown")),
+        "vat_basis_note": vat_basis_meta.get("vat_basis_note"),
         "duty_rate": duty_mid,
         "duty_rate_low": duty_low,
         "duty_rate_high": duty_high,
@@ -1147,7 +1441,9 @@ def compute_landed_cost(
         "domestic_vat_display": domestic_vat_disp,
         "domestic_vat_in_mid": domestic_vat_in_mid,
         "domestic_vat_reclaimable": bool(
-            domestic_vat_rate and duty_bundle.get("buyer_vat_registered")
+            duty_bundle.get("domestic_vat_reclaimable")
+            if "domestic_vat_reclaimable" in duty_bundle
+            else (domestic_vat_rate and duty_bundle.get("buyer_vat_registered"))
         ),
         "package_weight_kg": weight_f,
         "package_weight_raw": weight_info.get("raw"),
@@ -1194,6 +1490,12 @@ def compute_landed_cost(
         "unconfirmed_tier_note": unconfirmed_tier_note,
         "freight_share": round(freight_share, 3),
         "freight_dominates_warning": freight_dominates,
+        "warning_freight_minimum": warning_freight_minimum,
+        "warning_implausible_price": warning_implausible_price,
+        "hide_landed": False,
+        "price_may_be_per_pack": bool(pack_meta.get("price_may_be_per_pack")),
+        "pack_text": pack_meta.get("pack_text"),
+        "pack_units": pack_meta.get("pack_units"),
         "sales_tax_rate": tax_rate,
         "buyer_vat_registered": bool(duty_bundle.get("buyer_vat_registered")),
         "duty_meta": duty_bundle.get("duty_meta"),
@@ -1209,4 +1511,11 @@ def compute_landed_cost(
         "assumptions": assumptions,
         "listing_link": str(listing.get("link") or ""),
         "listing_title": str(listing.get("title") or ""),
+        "price_soft_flagged": False,
+        "guards": [],
     }
+    # Soft band/cap (within 3×): keep estimated_total visible, attach flag + guards
+    if _soft_carry:
+        out.update(_soft_carry)
+        out["hide_landed"] = False
+    return out

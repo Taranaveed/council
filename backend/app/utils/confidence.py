@@ -6,6 +6,7 @@ import statistics
 from typing import Any
 
 from app.utils.price_classifier import extract_price_value
+from app.utils.vendor_check import is_known_marketplace_status
 
 
 def normalize_confidence_value(raw: Any) -> float | None:
@@ -94,7 +95,7 @@ def compute_price_confidence(
     Components (approx max ~108 before clamp):
       - listing_volume   up to 42
       - price_quality    up to 28  (parseable prices + tight spread + page prices)
-      - vendor_quality   up to 20  (Verified share, floor 8 if any verified)
+      - vendor_quality   up to 12  (known-marketplace host share; not seller verification)
       - agent_agreement  up to 18  (rec / range mid vs market + agent cluster)
     Soft-blend up to 20% of a normalized LLM confidence when n >= 3.
     """
@@ -140,13 +141,13 @@ def compute_price_confidence(
         price_quality += 3.0
     price_quality = min(28.0, price_quality + spread_bonus)
 
-    verified = sum(
+    known = sum(
         1
         for item in listings
-        if str(item.get("vendor_status") or "").lower() == "verified"
+        if is_known_marketplace_status(item.get("vendor_status"))
     )
-    if n and verified > 0:
-        vendor_quality = max(8.0, verified / n * 20.0)
+    if n and known > 0:
+        vendor_quality = max(6.0, known / n * 12.0)
     else:
         vendor_quality = 0.0
 
@@ -199,9 +200,9 @@ def compute_price_confidence(
         score = min(score, 55.0)
     elif len(local_listings) >= 5 and parse_ratio >= 0.6 and (cv is None or cv < 0.35):
         score = max(score, 78.0)
-        if verified >= 1:
-            score = max(score, 85.0)
-    if verified == 0 and 0 < n < 5:
+        if known >= 1:
+            score = max(score, 82.0)
+    if known == 0 and 0 < n < 5:
         score = min(score, 88.0)
 
     score = int(round(max(0.0, min(100.0, score))))
@@ -218,7 +219,7 @@ def compute_price_confidence(
             "local_listing_count": len(local_listings),
             "foreign_listing_count": foreign,
             "parseable_prices": len(prices),
-            "verified_vendors": verified,
+            "known_marketplace_hosts": known,
             "price_spread_cv": round(cv, 3) if cv is not None else None,
         },
     }

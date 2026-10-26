@@ -857,6 +857,11 @@ export function BuyerDashboard() {
             relevance={relevanceMeta}
             marketWarning={result.market_warning}
             skipReason={winnerReason || String(v.summary || '')}
+            serpSourceStatus={
+              (result.query_meta?.serp_source_status as
+                | Array<{ label?: string; status?: string; ok?: boolean }>
+                | undefined) || null
+            }
           />
 
           {comparePrior ? <CompareToPriorStrip compare={comparePrior} /> : null}

@@ -401,9 +401,13 @@ export function rankBulkListings(
     const localHost = isLocalListingHost(row.link, code);
     const originMatch = matchesBuyerOrigin(itemOrigin(row, item.supplier), code);
     if (i === 0) {
+      // UK retail Shopping comps (if any) are never Best; this reason is for
+      // the wholesale/import pick only. Prefer wording that does not claim
+      // "no priced UK listings" when localHost/originMatch are absent — the
+      // backend rewrites that phrase when UK retail prices enter comparison.
       const bits = localHost || originMatch
         ? ["best same-country / nearby option"]
-        : ["best available (limited local supply)"];
+        : ["best wholesale/import option available"];
       if (qtyN != null) bits.push("quantity");
       if (budgetN != null) bits.push("budget");
       reasons.push(bits.length > 1 ? bits.join(", ").replace(/,([^,]*)$/, " and$1") : bits[0]);

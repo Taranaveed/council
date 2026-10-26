@@ -41,7 +41,13 @@ from app.core.market_client import (
     fetch_market_prices,
     fetch_page_facts_for_listings,
     format_market_block,
+    get_last_market_fetch_meta,
     listings_to_market_context,
+)
+from app.utils.market_listings_prep import (
+    prepare_market_listings,
+    rewrite_market_warning_for_priced,
+    source_status_from_serp_log,
 )
 from app.db.marketplaces import get_marketplace_by_slug, infer_location_context
 from app.models.modes import (
@@ -796,8 +802,24 @@ async def deal_finder(
         ).strip()
 
     listings = await enrich_listings_with_vendor_status(listings)
-    listings = annotate_listing_channels(listings, is_bulk=is_bulk)
-    listings, must_haves = annotate_listings_with_spec_check(listings, product_query or req.item_name)
+    fetch_meta = get_last_market_fetch_meta()
+    listings_raw = list(fetch_meta.get("listings_raw") or [])
+    serp_source_status = source_status_from_serp_log(
+        fetch_meta.get("serpapi_search_log")
+    )
+    # Same UK annotate + raw retail merge as the benchmark runner
+    listings = prepare_market_listings(
+        listings,
+        listings_raw,
+        query=product_query or req.item_name,
+        location=req.location,
+        country_code=str(region_profile.get("country_code") or "") or None,
+        local_currency=local_currency or None,
+        is_bulk=is_bulk,
+    )
+    listings, must_haves = annotate_listings_with_spec_check(
+        listings, product_query or req.item_name
+    )
 
     # Page facts — only top pick, and only if market-service didn't already enrich it
     top = listings[:1]
@@ -851,12 +873,9 @@ async def deal_finder(
                 f"Found {len(reviewable)} supplier page(s) for “{product_query or req.item_name}”, "
                 "but fewer than 2 have a parseable unit price. Open the seller links to confirm MOQ and price."
             )
-            if isinstance(verdict.get("winner"), dict):
-                verdict["winner"]["reason"] = verdict["summary"]
-                verdict["winner"]["title"] = str(reviewable[0].get("title") or "")[:120]
-                verdict["winner"]["vendor"] = str(reviewable[0].get("vendor") or "")
-                verdict["winner"]["link"] = str(reviewable[0].get("link") or "")
-                verdict["winner"]["price"] = str(reviewable[0].get("price") or "See listing")
+            # NO_MATCH: never promote a reviewable supplier into winner
+            verdict["winner"] = None
+            verdict["no_match_reason"] = verdict["summary"]
             verdict["agent_breakdown"] = {
                 "thrift_advocate": "Supplier pages exist — confirm unit price and MOQ on each listing before buying.",
                 "risk_analyst": "Do not treat missing snippet prices as zero cost; verify on the seller site.",
@@ -950,7 +969,12 @@ async def deal_finder(
                 warn_bits.append(
                     "Options: " + "; ".join(str(o) for o in query_meta["options"][:4])
                 )
-        market_warning = " ".join(b for b in warn_bits if b)
+        market_warning = rewrite_market_warning_for_priced(
+            " ".join(b for b in warn_bits if b),
+            priced_count=len(kept),
+            source_status=serp_source_status,
+        )
+        query_meta = {**query_meta, "serp_source_status": serp_source_status}
         fact_flags = build_listing_risk_flags(
             display, winner=None, query=req.item_name
         )
@@ -1039,6 +1063,20 @@ async def deal_finder(
     market_warning = None if live_ok else (
         fetch_warning or "Live market data unavailable; agents used form input only."
     )
+    # Never claim "zero usable seller prices" when priced rows exist; attach source status
+    market_warning = rewrite_market_warning_for_priced(
+        market_warning if live_ok else (fetch_warning or market_warning),
+        priced_count=len(kept),
+        source_status=serp_source_status,
+    )
+    if live_ok and not market_warning and serp_source_status:
+        market_warning = rewrite_market_warning_for_priced(
+            None, priced_count=len(kept), source_status=serp_source_status
+        )
+    query_meta = {
+        **query_meta,
+        "serp_source_status": serp_source_status,
+    }
     if dropped:
         note = (
             f"Dropped {len(dropped)} off-category or non-product rows; "

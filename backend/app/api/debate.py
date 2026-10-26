@@ -1,18 +1,19 @@
 import json
 import uuid
 import re
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.models.debate import DebateContext, DebateRequest, DebateMessage, Speaker
 from app.core.llm_service import stream_llm_response, generate_non_streaming
+from app.core.auth import get_current_user
 
 router = APIRouter(prefix="/debate", tags=["debate"])
 active_debates: dict[str, DebateContext] = {}
 
 
 @router.post("/start")
-async def start_debate(request: DebateRequest):
+async def start_debate(request: DebateRequest, _user: dict = Depends(get_current_user)):
     debate_id = str(uuid.uuid4())
     context = DebateContext(
         debate_id=debate_id,
@@ -25,7 +26,7 @@ async def start_debate(request: DebateRequest):
 
 
 @router.get("/stream/{debate_id}")
-async def stream_debate(debate_id: str):
+async def stream_debate(debate_id: str, _user: dict = Depends(get_current_user)):
     if debate_id not in active_debates:
         raise HTTPException(status_code=404, detail="Debate not found")
     
@@ -133,7 +134,7 @@ async def stream_debate(debate_id: str):
 
 
 @router.get("/result/{debate_id}")
-async def get_debate_result(debate_id: str):
+async def get_debate_result(debate_id: str, _user: dict = Depends(get_current_user)):
     if debate_id not in active_debates:
         raise HTTPException(status_code=404, detail="Debate not found")
     context = active_debates[debate_id]

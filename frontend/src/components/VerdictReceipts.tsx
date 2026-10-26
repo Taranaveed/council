@@ -42,6 +42,7 @@ type Props = {
   relevance?: Relevance | null;
   marketWarning?: string | null;
   skipReason?: string | null;
+  serpSourceStatus?: Array<{ label?: string; status?: string; ok?: boolean }> | null;
 };
 
 const DROP_LABELS: Record<string, string> = {
@@ -75,6 +76,7 @@ export function VerdictReceipts({
   relevance,
   marketWarning,
   skipReason,
+  serpSourceStatus,
 }: Props) {
   const tag = String(verdictTag || '').toUpperCase();
   const isBuyOrMaybe = tag === 'BUY' || tag === 'MAYBE';
@@ -187,6 +189,16 @@ export function VerdictReceipts({
             <span className="verdict-receipts__v">
               {dropEntries
                 .map(([k, n]) => `${DROP_LABELS[k] || k}: ${n}`)
+                .join(' · ')}
+            </span>
+          </li>
+        ) : null}
+        {serpSourceStatus && serpSourceStatus.length ? (
+          <li>
+            <span className="verdict-receipts__k">Serp sources</span>
+            <span className="verdict-receipts__v">
+              {serpSourceStatus
+                .map((s) => `${s.label || '?'}:${s.status || (s.ok ? 'ok' : 'fail')}`)
                 .join(' · ')}
             </span>
           </li>
