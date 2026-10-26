@@ -272,16 +272,20 @@ async def fetch_market_prices(
     # Free Render sleeps — wake quickly locally; longer only for remote hosts.
     await wake_market_service(75.0 if not _is_local_market_url() else 2.0)
 
-    for attempt in range(1, 4):
+    # Extra attempts for cold-start 429s on free Render (wake floods the instance).
+    max_attempts = 5 if not _is_local_market_url() else 3
+    for attempt in range(1, max_attempts + 1):
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=15.0)) as client:
                 res = await client.post(f"{MARKET_SERVICE_URL}/market/prices", json=payload)
-                # Cold proxy sometimes returns HTML/404 while booting.
-                if res.status_code in (404, 502, 503, 504):
+                # Cold proxy / free-tier rate limit while booting.
+                if res.status_code in (404, 429, 502, 503, 504):
                     last_error = f"Market service HTTP {res.status_code}"
                     print(f"[market_client] attempt {attempt}: {last_error}")
-                    await asyncio.sleep(1.5 * attempt)
-                    await wake_market_service(20.0 if not _is_local_market_url() else 2.0)
+                    # 429 needs a longer cool-down than 502/503 — avoid stampede.
+                    cool = (6.0 * attempt) if res.status_code == 429 else (1.5 * attempt)
+                    await asyncio.sleep(cool)
+                    await wake_market_service(25.0 if not _is_local_market_url() else 2.0)
                     continue
                 res.raise_for_status()
                 data = res.json()
@@ -340,8 +344,9 @@ async def fetch_market_prices(
         except Exception as e:
             last_error = str(e)
             print(f"[market_client] attempt {attempt} failed: {e}")
-            await asyncio.sleep(1.5 * attempt)
-            await wake_market_service(20.0 if not _is_local_market_url() else 2.0)
+            cool = 6.0 * attempt if "429" in last_error else 1.5 * attempt
+            await asyncio.sleep(cool)
+            await wake_market_service(25.0 if not _is_local_market_url() else 2.0)
 
     _last_fetch_meta = {
         "serpapi_searches": 0,

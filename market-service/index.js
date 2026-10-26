@@ -208,9 +208,18 @@ function serializeListingRaw(row) {
   };
 }
 
-// First price token only — do not greedily eat "$1.32" + ",000" MOQ glued together
+// First price token only — do not greedily eat "$1.32" + ",000" MOQ glued together.
+// Include ₹ — IndiaMART titles often read "at ₹ 90/piece" with no "INR" word.
 const PRICE_IN_TEXT =
-  /(?:Rs\.?|PKR|USD|\$|€|£|INR|AED|SAR)\s*\d{1,3}(?:,\d{3})*(?:\.\d+)?|\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*(?:Rs\.?|PKR)\b/i;
+  /(?:Rs\.?|PKR|USD|\$|€|£|₹|INR|AED|SAR)\s*\d{1,3}(?:,\d{3})*(?:\.\d+)?|\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*(?:Rs\.?|PKR|INR)\b/i;
+
+/** Pull a unit-price token from title and/or snippet (organic SERPs put ₹ in the title). */
+function priceTokenFromText(...parts) {
+  const blob = parts.filter(Boolean).map(String).join(" ");
+  if (!blob) return null;
+  const m = blob.match(PRICE_IN_TEXT);
+  return m ? m[0] : null;
+}
 
 function mapListing(item, extras = {}) {
   const price =
@@ -219,7 +228,9 @@ function mapListing(item, extras = {}) {
     null;
   // Never fall back to the full SERP snippet — it produces bare "rs." / junk labels.
   const snippetPrice =
-    !price && item.snippet ? String(item.snippet).match(PRICE_IN_TEXT)?.[0] : null;
+    !price
+      ? priceTokenFromText(item.title, item.snippet)
+      : null;
   let resolved = price || snippetPrice || "See listing";
   resolved = typeof resolved === "string" ? resolved : String(resolved);
   // Normalize / reject concatenated scrapes like "$1.321,000"
@@ -276,7 +287,7 @@ function extractListings(response, limit, extras = {}) {
 
   const mapOrganic = (item) => {
     const extPrice = item.rich_snippet?.top?.detected_extensions?.price;
-    const snippetPrice = (item.snippet || "").match(PRICE_IN_TEXT)?.[0];
+    const snippetPrice = priceTokenFromText(item.title, item.snippet);
     const price = extPrice != null ? String(extPrice) : snippetPrice || "See listing";
     return {
       title: item.title || "Unknown",

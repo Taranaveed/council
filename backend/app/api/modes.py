@@ -744,6 +744,7 @@ async def deal_finder(
     )
     warn_l = (fetch_warning or "").lower()
     quota_hit = "run out of searches" in warn_l or "quota" in warn_l
+    rate_limited = "429" in warn_l or "too many requests" in warn_l
     # Avoid burning more SerpApi when the account is exhausted
     if not listings and (req.max_budget or is_bulk) and not quota_hit:
         fallback_query = " ".join(
@@ -759,11 +760,14 @@ async def deal_finder(
             budget=req.max_budget,
             use_cache=True,
         )
-        fetch_warning = fetch_warning or fetch_warning2
+        # Prefer the successful fetch's warning — don't keep a stale 429 from attempt 1
+        # when the fallback returned real listings.
+        fetch_warning = fetch_warning2 if listings else (fetch_warning or fetch_warning2)
         warn_l = (fetch_warning or "").lower()
         quota_hit = "run out of searches" in warn_l or "quota" in warn_l
+        rate_limited = "429" in warn_l or "too many requests" in warn_l
 
-    if (is_bulk and not quota_hit):
+    if (is_bulk and not quota_hit and not rate_limited):
         wholesale_hosts = (
             "alibaba.", "indiamart.", "made-in-china.", "dhgate.",
             "globalsources.", "tradeindia.", "aliexpress.", "europages.",
