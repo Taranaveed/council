@@ -30,6 +30,7 @@ type Relevance = {
   dropped_count?: number;
   drop_reasons?: Record<string, number>;
   no_good_matches?: boolean;
+  listing_counts?: { found?: number; relevant?: number; priced?: number };
 };
 
 type Props = {
@@ -173,13 +174,17 @@ export function VerdictReceipts({
         ) : null}
         {relevance ? (
           <li>
-            <span className="verdict-receipts__k">Listings kept</span>
+            <span className="verdict-receipts__k">Listings</span>
             <span className="verdict-receipts__v">
-              {relevance.relevant_priced_count ?? 0} priced product page
-              {(relevance.relevant_priced_count ?? 0) === 1 ? '' : 's'}
-              {relevance.dropped_count
-                ? ` · ${relevance.dropped_count} dropped before the call`
-                : ''}
+              {(() => {
+                const c = relevance.listing_counts;
+                const priced = c?.priced ?? relevance.relevant_priced_count ?? 0;
+                const relevant = c?.relevant ?? priced;
+                const found =
+                  c?.found ??
+                  priced + (relevance.dropped_count ?? 0);
+                return `${found} found · ${relevant} relevant · ${priced} priced`;
+              })()}
             </span>
           </li>
         ) : null}

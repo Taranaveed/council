@@ -8,6 +8,8 @@ _PACK_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(?:box|carton|case|pack|pkt|packet)\s*(?:of\s*)?(\d{1,5})\b", re.I), "box_of_n"),
     (re.compile(r"\b(\d{1,5})\s*(?:pcs?|pieces?|units?|pens?|bags?)\s*(?:\/|per\s*)?(?:box|carton|case|pack)\b", re.I), "n_per_box"),
     (re.compile(r"\b(\d{1,5})\s*(?:pc|pcs|pieces?)(?:lot|\/lot|\s+lot)\b", re.I), "n_pc_lot"),
+    # "1000 Count" / "500 ct" / "200 count white disposable"
+    (re.compile(r"\b(\d{2,5})\s*(?:count|ct|cnt)\b", re.I), "n_count"),
     (re.compile(r"\b(\d{2,5})\s*pcs?\b", re.I), "n_pcs"),  # e.g. 100pcs wholesale tote
     (re.compile(r"\b(?:per|/)\s*(?:box|carton|case|pack|pallet|lot)\b", re.I), "per_pack_word"),
     (re.compile(r"\b(?:per|/)\s*1000\b", re.I), "per_1000"),

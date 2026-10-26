@@ -67,8 +67,10 @@ class TestRelevanceNoMatch:
         assert len(kept) < 2
         verdict = no_good_matches_verdict("mobile adapters", dropped=len(dropped))
         assert verdict["verdict"] == "NO_MATCH"
-        assert not verdict["winner"].get("link")
-        assert "Best pick" not in (verdict["winner"].get("reason") or "")
+        # Intentional: NO_MATCH never promotes a supplier as winner (winner is None)
+        assert verdict["winner"] is None
+        # Prose may say "we will not invent a Best pick" — that is not a winner badge
+        assert verdict.get("best_pick") is not True
 
     def test_phone_handsets_rejected_for_adapter_query(self):
         listings = [

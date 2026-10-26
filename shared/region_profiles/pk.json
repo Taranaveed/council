@@ -43,7 +43,9 @@
     "laam\\."
   ],
   "local_marketplace_slugs": ["olx_pakistan", "daraz_pk", "local_retailers_pk"],
-  "wholesale_origin_preference": ["PK", "IN"],
+  "wholesale_origin_preference": ["PK"],
+  "restricted_origins": ["IN"],
+  "restricted_origins_warning": "India-origin supplier — confirm current Pakistan import / trade rules before ordering. Not eligible for Best pick.",
   "direct_adapters": ["daraz_pk", "olx_pk"],
   "import_origin_groups": {
     "domestic": ["PK"],

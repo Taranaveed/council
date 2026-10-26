@@ -58,25 +58,41 @@ const FACTORY_USD_HOST =
  * Factory/B2B pages quote USD even when the snippet has no $ sign ("0.59").
  * Treating that as PKR makes $0.59 look like "Rs 1".
  * Also: SERP sometimes mislabels factory amounts as "Rs 4" — reinterpret as USD.
+ *
+ * Explicit ₹ / £ / € / INR / GBP symbols always win — never coerce IndiaMART ₹
+ * or UK £ to USD just because wholesale:true is set.
  */
 export function inferListingCurrency(listing, gl, preferredCurrency) {
   const link = `${listing?.link || ""} ${listing?.vendor || ""}`;
-  const factory =
-    FACTORY_USD_HOST.test(link) ||
-    Boolean(listing?.wholesale) ||
-    listing?.supplier_origin === "CN";
+  const cnFactory =
+    FACTORY_USD_HOST.test(link) || listing?.supplier_origin === "CN";
+  const wholesaleFlag = Boolean(listing?.wholesale);
   const price = String(listing?.price || "");
   const amount = extractAmount(price);
   const detected = detectCurrency(price);
 
   // Explicit $ always wins
   if (detected === "USD") return "USD";
-  // Factory/B2B quotes are USD; buyer-locale £/Rs/€ rewrites are scrape bugs
-  if (factory) {
-    if (detected === "PKR" && amount != null && amount < 100) return "USD";
+  // Explicit local/regional symbols keep their currency (INR/PKR/GBP/EUR/…)
+  if (detected && detected !== "USD") {
+    // Tiny "Rs 4" on a CN factory host is usually a SERP mislabel of $4
+    if (
+      cnFactory &&
+      detected === "PKR" &&
+      amount != null &&
+      amount < 100
+    ) {
+      return "USD";
+    }
+    return detected;
+  }
+  // Bare digits on CN factory / wholesale → USD
+  if (cnFactory || (wholesaleFlag && FACTORY_USD_HOST.test(link))) {
     return "USD";
   }
-  if (detected) return detected;
+  if (wholesaleFlag && amount != null) {
+    return "USD";
+  }
   return String(preferredCurrency || expectedCurrencyForGl(gl) || "USD").toUpperCase();
 }
 

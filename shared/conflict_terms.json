@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "note": "Per-category attribute conflicts. Query category → listing terms that contradict buyer intent.",
+  "categories": {
+    "towels": {
+      "query_any": ["towel", "towels", "hand towel", "bath towel", "face towel"],
+      "conflict_terms": ["disposable", "single-use", "paper towel", "tissue", "wet wipe", "wipe"],
+      "conflict_label": "Disposable / paper — not a soft reusable towel"
+    },
+    "earphones_wired": {
+      "query_any": ["wired", "3.5mm", "handsfree", "earphone", "headset"],
+      "conflict_terms": ["wireless", "bluetooth", "tws", "true wireless", "earbuds wireless"],
+      "conflict_label": "Wireless / TWS — conflicts with wired intent",
+      "require_query_token": "wired"
+    }
+  }
+}

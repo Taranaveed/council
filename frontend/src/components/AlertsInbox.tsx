@@ -107,7 +107,7 @@ export function AlertsInbox({ onReorderItem }: Props) {
       </summary>
 
       <p className="alerts-inbox__hint">
-        Price drops and reorder nudges land here. Optional email needs SMTP in the backend env.
+        Price drops and reorder nudges land here. Turn on email alerts in settings when available.
       </p>
 
       <div className="alerts-inbox__actions">

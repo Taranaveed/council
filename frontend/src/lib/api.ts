@@ -243,9 +243,16 @@ export type ModeResult = {
       dropped_count?: number;
       drop_reasons?: Record<string, number>;
       no_good_matches?: boolean;
+      listing_counts?: { found?: number; relevant?: number; priced?: number };
     };
     supplier_table?: SupplierCompareRow[];
     negotiation_message?: string;
+    serp_source_status?: Array<{
+      label?: string;
+      status?: string;
+      ok?: boolean;
+      error?: string | null;
+    }>;
   } | null;
 };
 

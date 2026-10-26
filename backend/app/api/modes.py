@@ -49,6 +49,7 @@ from app.utils.market_listings_prep import (
     rewrite_market_warning_for_priced,
     source_status_from_serp_log,
 )
+from app.utils.safe_errors import scrub_buyer_warning
 from app.db.marketplaces import get_marketplace_by_slug, infer_location_context
 from app.models.modes import (
     AudienceDiscoveryRequest,
@@ -973,10 +974,12 @@ async def deal_finder(
                 warn_bits.append(
                     "Options: " + "; ".join(str(o) for o in query_meta["options"][:4])
                 )
-        market_warning = rewrite_market_warning_for_priced(
-            " ".join(b for b in warn_bits if b),
-            priced_count=len(kept),
-            source_status=serp_source_status,
+        market_warning = scrub_buyer_warning(
+            rewrite_market_warning_for_priced(
+                " ".join(b for b in warn_bits if b),
+                priced_count=len(kept),
+                source_status=serp_source_status,
+            )
         )
         query_meta = {**query_meta, "serp_source_status": serp_source_status}
         fact_flags = build_listing_risk_flags(
@@ -1077,6 +1080,7 @@ async def deal_finder(
         market_warning = rewrite_market_warning_for_priced(
             None, priced_count=len(kept), source_status=serp_source_status
         )
+    market_warning = scrub_buyer_warning(market_warning)
     query_meta = {
         **query_meta,
         "serp_source_status": serp_source_status,

@@ -6,10 +6,14 @@ production and replay share the same rows before relevance / landed.
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
+from app.utils.fx import convert_amount
 from app.utils.listing_channel import annotate_listing_channels
 from app.utils.listing_locality import annotate_listing_locality
+from app.utils.money import parse_money
+from app.utils.origin_policy import annotate_restricted_origins
 from app.utils.uk_shopping_seller import (
     annotate_price_types,
     annotate_uk_shopping_sellers,
@@ -79,7 +83,66 @@ def prepare_market_listings(
             item["is_local"] = False
             item["is_import"] = True
 
+    rows = annotate_restricted_origins(
+        rows,
+        location=location,
+        country_code=country_code,
+        local_currency=local_currency,
+    )
+    # One FX source: backend overwrite of market-service display approx
+    rows = apply_backend_fx_local_approx(rows, local_currency=local_currency)
     return rows
+
+
+def apply_backend_fx_local_approx(
+    listings: list[dict[str, Any]] | None,
+    *,
+    local_currency: str | None,
+) -> list[dict[str, Any]]:
+    """Recompute price_local_approx with backend FX (frankfurter / er-api / static)."""
+    expected = (local_currency or "").strip().upper()
+    if not expected:
+        return list(listings or [])
+    out: list[dict[str, Any]] = []
+    for row in listings or []:
+        item = dict(row)
+        price = str(item.get("price") or "")
+        amt = parse_money(price)
+        detected = str(item.get("currency") or "").upper()
+        if not detected:
+            if re.search(r"₹|\bINR\b", price, re.I):
+                detected = "INR"
+            elif re.search(r"Rs\.?|\bPKR\b", price, re.I):
+                detected = "PKR"
+            elif re.search(r"£|\bGBP\b", price, re.I):
+                detected = "GBP"
+            elif re.search(r"\$|\bUSD\b", price, re.I):
+                detected = "USD"
+        if amt and detected and detected != expected:
+            conv, meta = convert_amount(amt, detected, expected)
+            if conv is not None:
+                rounded = round(conv) if conv >= 50 else round(conv, 2)
+                if expected == "PKR":
+                    item["price_local_approx"] = f"≈ Rs {rounded:,}"
+                elif expected == "GBP":
+                    item["price_local_approx"] = f"≈ £{rounded:,}"
+                elif expected == "INR":
+                    item["price_local_approx"] = f"≈ ₹{rounded:,}"
+                else:
+                    item["price_local_approx"] = f"≈ {rounded:,} {expected}"
+                item["fx_meta"] = {
+                    "used_fallback": bool(meta.get("used_fallback")),
+                    "from_source": (meta.get("from") or {}).get("source"),
+                    "to_source": (meta.get("to") or {}).get("source"),
+                    "as_of": (meta.get("to") or {}).get("as_of")
+                    or (meta.get("from") or {}).get("as_of"),
+                }
+                item["currency_mismatch"] = True
+        elif detected == expected:
+            item["price_local_approx"] = None
+            item["currency_mismatch"] = False
+        out.append(item)
+    return out
 
 
 def rewrite_market_warning_for_priced(

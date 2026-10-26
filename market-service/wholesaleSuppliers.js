@@ -19,7 +19,8 @@ const BUYER_ORIGIN = {
   uk: ["EU", "UK"],
   gb: ["EU", "UK"],
   in: ["IN"],
-  pk: ["PK", "IN"], // Pakistan first; India regional is next-best nearby
+  // Neutral: no IN boost for Pakistan (trade rules may restrict). IN still searchable.
+  pk: ["PK"],
   ae: ["AE", "CN"],
 };
 
@@ -174,9 +175,10 @@ export function pickSuppliersForGl(gl, { max = 5 } = {}) {
   const code = String(gl || "").toLowerCase();
   const region = GL_TO_REGION[code] || "global";
   // Same-country / nearby suppliers first; China factories only after that
+  // PK: neutral catalog order (no IndiaMART-first boost). IndiaMART still allowed.
   const preferOrder =
     code === "pk"
-      ? ["indiamart", "tradeindia", "dhgate", "alibaba", "made-in-china", "aliexpress"]
+      ? ["dhgate", "alibaba", "made-in-china", "indiamart", "tradeindia", "aliexpress"]
       : code === "in"
         ? ["indiamart", "tradeindia", "dhgate", "made-in-china", "alibaba", "aliexpress"]
         : code === "us" || code === "ca"

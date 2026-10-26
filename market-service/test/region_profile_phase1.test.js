@@ -104,7 +104,8 @@ describe("SERP $ under UK request stays USD", () => {
     assert.match(String(row.price), /\$/);
   });
 
-  it("factory £ rewrite under UK preferredCurrency is corrected to USD", async () => {
+  it("explicit £ on wholesale host stays GBP (no USD coerce)", async () => {
+    // Intentional: symbol currencies (₹/£/€/Rs) win over wholesale:true factory-USD path
     const { annotateListingCurrency } = await import("../currency.js");
     const row = annotateListingCurrency(
       {
@@ -116,8 +117,8 @@ describe("SERP $ under UK request stays USD", () => {
       "uk",
       "GBP",
     );
-    assert.equal(row.currency, "USD");
-    assert.equal(row.currency_mismatch, true);
-    assert.match(String(row.price), /\$/);
+    assert.equal(row.currency, "GBP");
+    assert.equal(row.currency_mismatch, false);
   });
 });
+

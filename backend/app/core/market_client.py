@@ -12,8 +12,15 @@ import httpx
 from app.core.region_config import resolve_market_locale
 
 MARKET_SERVICE_URL = os.getenv("MARKET_SERVICE_URL", "http://localhost:3001").rstrip("/")
+MARKET_SERVICE_SECRET = (os.getenv("MARKET_SERVICE_SECRET") or "").strip()
 # Short TTL: speeds repeat searches without freezing debate (agents get a fresh run_id).
 _CACHE_TTL_SEC = float(os.getenv("MARKET_CACHE_TTL_SEC", "90"))
+
+
+def _market_headers() -> dict[str, str]:
+    if not MARKET_SERVICE_SECRET:
+        return {}
+    return {"X-Market-Secret": MARKET_SERVICE_SECRET}
 # value: (ts, listings, warning, listings_raw)
 _market_cache: dict[
     str, tuple[float, list[dict[str, Any]], str | None, list[dict[str, Any]]]
@@ -125,7 +132,9 @@ async def wake_market_service(timeout_sec: float = 90.0) -> bool:
     while time.time() < deadline:
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(ping_timeout, connect=3.0)) as client:
-                res = await client.get(f"{MARKET_SERVICE_URL}/health")
+                res = await client.get(
+                    f"{MARKET_SERVICE_URL}/health", headers=_market_headers()
+                )
                 if res.status_code == 200:
                     return True
         except Exception as e:
@@ -277,7 +286,11 @@ async def fetch_market_prices(
     for attempt in range(1, max_attempts + 1):
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=15.0)) as client:
-                res = await client.post(f"{MARKET_SERVICE_URL}/market/prices", json=payload)
+                res = await client.post(
+                    f"{MARKET_SERVICE_URL}/market/prices",
+                    json=payload,
+                    headers=_market_headers(),
+                )
                 # Cold proxy / free-tier rate limit while booting.
                 if res.status_code in (404, 429, 502, 503, 504):
                     last_error = f"Market service HTTP {res.status_code}"
@@ -377,7 +390,11 @@ async def fetch_page_facts_for_listings(
     }
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(90.0, connect=15.0)) as client:
-            res = await client.post(f"{MARKET_SERVICE_URL}/market/page-facts", json=payload)
+            res = await client.post(
+                f"{MARKET_SERVICE_URL}/market/page-facts",
+                json=payload,
+                headers=_market_headers(),
+            )
             if res.status_code != 200:
                 return listings
             data = res.json()

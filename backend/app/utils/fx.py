@@ -1,4 +1,9 @@
-"""Live FX with timestamp; static RegionProfile.fx_to_usd_fallback when offline."""
+"""Live FX with timestamp; static RegionProfile.fx_to_usd_fallback when offline.
+
+Primary: Frankfurter (ECB) — covers GBP, EUR, INR, USD; does NOT publish PKR.
+Secondary: open.er-api.com (exchangerate-api.com free tier) — covers PKR, INR, GBP, USD.
+Fallback: static table / RegionProfile.fx_to_usd_fallback.
+"""
 from __future__ import annotations
 
 import time
@@ -10,6 +15,9 @@ import httpx
 # In-memory cache: (pair) -> {rate, as_of, source}
 _CACHE: dict[str, dict[str, Any]] = {}
 _TTL_SEC = 3600
+
+# Currencies Frankfurter/ECB typically omits (need secondary source).
+_FRANKFURTER_UNSUPPORTED = frozenset({"PKR", "AED", "SAR", "CNY"})
 
 
 def _static_to_usd(currency: str, profile_fallback: float | None) -> float | None:
@@ -33,6 +41,52 @@ def _static_to_usd(currency: str, profile_fallback: float | None) -> float | Non
     return legacy.get(cur)
 
 
+def _from_frankfurter(cur: str) -> dict[str, Any] | None:
+    if cur in _FRANKFURTER_UNSUPPORTED:
+        return None
+    url = f"https://api.frankfurter.app/latest?from=USD&to={cur}"
+    with httpx.Client(timeout=3.0, follow_redirects=True) as client:
+        resp = client.get(url)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        per_usd = float((data.get("rates") or {}).get(cur) or 0)
+        if per_usd <= 0:
+            return None
+        return {
+            "rate_to_usd": 1.0 / per_usd,
+            "as_of": str(data.get("date") or datetime.now(timezone.utc).date()),
+            "source": "frankfurter.app",
+            "used_fallback": False,
+        }
+
+
+def _from_er_api(cur: str) -> dict[str, Any] | None:
+    """open.er-api.com — free, no key; rates are CUR per 1 USD."""
+    url = "https://open.er-api.com/v6/latest/USD"
+    with httpx.Client(timeout=4.0, follow_redirects=True) as client:
+        resp = client.get(url)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        if str(data.get("result") or "").lower() != "success":
+            return None
+        per_usd = float((data.get("rates") or {}).get(cur) or 0)
+        if per_usd <= 0:
+            return None
+        as_of = str(
+            data.get("time_last_update_utc")
+            or data.get("time_last_update_unix")
+            or datetime.now(timezone.utc).date()
+        )
+        return {
+            "rate_to_usd": 1.0 / per_usd,
+            "as_of": as_of,
+            "source": "open.er-api.com",
+            "used_fallback": False,
+        }
+
+
 def fetch_usd_rate(currency: str, *, fallback_to_usd: float | None = None) -> dict[str, Any]:
     """
     Return {rate_to_usd, as_of, source, used_fallback}.
@@ -54,24 +108,13 @@ def fetch_usd_rate(currency: str, *, fallback_to_usd: float | None = None) -> di
         return {k: v for k, v in hit.items() if not k.startswith("_")}
 
     live: dict[str, Any] | None = None
-    try:
-        # Frankfurter: free, no key — amounts in CUR per 1 USD → invert for to_usd
-        url = f"https://api.frankfurter.app/latest?from=USD&to={cur}"
-        with httpx.Client(timeout=2.5) as client:
-            resp = client.get(url)
-            if resp.status_code == 200:
-                data = resp.json()
-                per_usd = float((data.get("rates") or {}).get(cur) or 0)
-                if per_usd > 0:
-                    rate_to_usd = 1.0 / per_usd
-                    live = {
-                        "rate_to_usd": rate_to_usd,
-                        "as_of": str(data.get("date") or datetime.now(timezone.utc).date()),
-                        "source": "frankfurter.app",
-                        "used_fallback": False,
-                    }
-    except Exception:
-        live = None
+    for fetcher in (_from_frankfurter, _from_er_api):
+        try:
+            live = fetcher(cur)
+        except Exception:
+            live = None
+        if live:
+            break
 
     if live:
         live["_cached_at"] = now

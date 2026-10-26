@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.utils.conflict_terms import detect_attribute_conflicts
 from app.utils.money import parse_money
 from app.utils.spec_check import listing_satisfies_wired_intent
 
@@ -208,8 +209,48 @@ _WEAK_QUERY_TOKENS = frozenset(
         "order",
         "buy",
         "uk",
+        # Qualifiers that are not product form — avoid requiring "mobile" on a charger title
+        "mobile",
+        "phone",
     }
 )
+
+# Product-form synonyms: any member satisfies THAT required noun (not other nouns).
+# Do not put co-required pairs (foil+rolls) in the same group.
+_NOUN_SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
+    frozenset({"earphone", "earphones", "earbud", "earbuds", "handsfree", "handfrees", "headset", "headsets", "headphone", "headphones"}),
+    frozenset({"cover", "covers", "case", "cases", "phonecase"}),
+    frozenset({"adapter", "adapters", "adaptor", "adaptors", "charger", "chargers"}),
+    frozenset({"mug", "mugs", "cup", "cups"}),
+    frozenset({"ring", "rings"}),
+    frozenset({"notebook", "notebooks", "notepad", "notepads"}),
+    frozenset({"towel", "towels"}),
+    frozenset({"foil", "foils"}),
+    frozenset({"roll", "rolls"}),
+)
+
+
+def _noun_match_forms(noun: str) -> set[str]:
+    """Singular/plural stems + synonym group members for one required noun."""
+    n = str(noun or "").lower().strip()
+    if not n:
+        return set()
+    forms = {n}
+    if n.endswith("ies") and len(n) > 4:
+        forms.add(n[:-3] + "y")
+    elif n.endswith("ses") and len(n) > 4:
+        forms.add(n[:-2])
+    elif n.endswith("s") and len(n) > 3 and not n.endswith("ss"):
+        forms.add(n[:-1])
+    else:
+        forms.add(n + "s")
+        if n.endswith("y") and len(n) > 2:
+            forms.add(n[:-1] + "ies")
+    for group in _NOUN_SYNONYM_GROUPS:
+        if forms & group or n in group:
+            forms |= set(group)
+            break
+    return forms
 
 
 def key_product_nouns(query: str) -> list[str]:
@@ -232,10 +273,17 @@ def key_product_nouns(query: str) -> list[str]:
     # Drop leading brand/site token when we still have ≥2 product nouns
     # e.g. "nisbets catering foil rolls" → foil, rolls (catering kept if only 3)
     content = toks[1:] if len(toks) >= 3 else toks
-    # Require the last two content nouns (product + form)
-    if len(content) >= 2:
-        return content[-2:]
-    return content
+    # Prefer the last two content nouns (product + form)
+    selected = content[-2:] if len(content) >= 2 else content
+    # Brand/model tokens (iphone, …) are optional when a known product-form noun remains
+    form_nouns = [
+        n
+        for n in selected
+        if any(_noun_match_forms(n) & g for g in _NOUN_SYNONYM_GROUPS)
+    ]
+    if form_nouns and len(form_nouns) < len(selected):
+        return form_nouns
+    return selected
 
 
 def title_has_key_product_nouns(listing: dict[str, Any], query: str) -> bool:
@@ -246,7 +294,13 @@ def title_has_key_product_nouns(listing: dict[str, Any], query: str) -> bool:
     title = str(listing.get("title") or "").lower()
     if not title.strip():
         return False
-    return all(n in title for n in nouns)
+    for noun in nouns:
+        forms = _noun_match_forms(noun)
+        if not any(re.search(rf"\b{re.escape(f)}\b", title) for f in forms):
+            # Fallback: substring for short compound titles without clear word bounds
+            if not any(f in title for f in forms):
+                return False
+    return True
 
 
 def _is_product_url(link: str) -> bool:
@@ -278,6 +332,8 @@ def listing_relevant_to_query(listing: dict[str, Any], query: str) -> bool:
     if listing.get("wired_conflict") or listing.get("spec_ok") is False:
         return False
     if listing.get("spec_misses"):
+        return False
+    if listing.get("attribute_conflicts"):
         return False
     if listing.get("price_outlier") or listing.get("unit_price_unreliable"):
         return False
@@ -383,13 +439,22 @@ def filter_relevant_priced_listings(
 
     kept: list[dict[str, Any]] = []
     dropped: list[dict[str, Any]] = []
+    found_n = 0
+    relevant_n = 0
     for row in listings or []:
         item = dict(row)
+        conflicts = detect_attribute_conflicts(item, query)
+        if conflicts:
+            item["attribute_conflicts"] = conflicts
+            item["spec_ok"] = False
+        # found = product-detail / reviewable URLs entering the gate
+        if is_reviewable_product_listing(item) or is_priced_product_listing(item):
+            found_n += 1
         if not is_priced_product_listing(item):
             item["drop_reason"] = "not_priced_product_page"
             dropped.append(item)
             continue
-        if item.get("wired_conflict") or item.get("spec_ok") is False or item.get("spec_misses"):
+        if item.get("wired_conflict") or item.get("spec_ok") is False or item.get("spec_misses") or item.get("attribute_conflicts"):
             item["drop_reason"] = "must_have_miss"
             item["counts_as_live_listing"] = False
             dropped.append(item)
@@ -413,6 +478,7 @@ def filter_relevant_priced_listings(
             item["drop_reason"] = "off_category"
             dropped.append(item)
             continue
+        relevant_n += 1
         if item.get("uk_retail_priced") or item.get("price_type") == "retail":
             item["counts_as_live_listing"] = False
             item["counts_as_priced_comparison"] = True
@@ -472,6 +538,15 @@ def filter_relevant_priced_listings(
         still_kept.append(item)
     kept = still_kept
 
+    # Single definition used by UI receipts:
+    #   found    = product-detail / reviewable pages entering the gate
+    #   relevant = passed category / key-noun / conflict checks (pre-outlier)
+    #   priced   = final kept pool with parseable plausible unit price
+    listing_counts = {
+        "found": found_n,
+        "relevant": relevant_n,
+        "priced": len(kept),
+    }
     meta = {
         "relevant_priced_count": len(kept),
         "dropped_count": len(dropped),
@@ -487,6 +562,7 @@ def filter_relevant_priced_listings(
         "uk_retail_priced_count": sum(
             1 for k in kept if k.get("uk_retail_priced")
         ),
+        "listing_counts": listing_counts,
     }
     return kept, dropped, meta
 

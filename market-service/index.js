@@ -63,6 +63,19 @@ const regionConfig = getRegionConfig();
 app.use(cors());
 app.use(express.json());
 
+/** Optional shared-secret auth for /market/* (set MARKET_SERVICE_SECRET on API + market). */
+function requireMarketSecret(req, res, next) {
+  const expected = String(process.env.MARKET_SERVICE_SECRET || "").trim();
+  if (!expected) return next(); // disabled when unset (local dev)
+  if (req.path === "/health" || req.path === "/") return next();
+  const got =
+    String(req.get("x-market-secret") || "").trim() ||
+    String(req.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (got && got === expected) return next();
+  return res.status(401).json({ error: "Unauthorized" });
+}
+app.use(requireMarketSecret);
+
 /** SerpApi private keys are long opaque strings — UUID-shaped values are almost never valid. */
 function inspectSerpApiKey(raw) {
   const key = String(raw || "").trim();
@@ -99,13 +112,28 @@ const keyInfo = inspectSerpApiKey(process.env.SERPAPI_KEY);
 let _serpCallsThisRequest = 0;
 let _serpStats = { attempts: 0, retries: 0, successes: 0, failures: 0 };
 let _serpSearchLog = [];
-function beginSerpRequestCount() {
+/** Soft cap on SerpApi calls per /market/prices request (PK default 5). */
+let _serpBudgetMax = null;
+let _serpBudgetHit = false;
+function beginSerpRequestCount(budgetMax = null) {
   _serpCallsThisRequest = 0;
   _serpStats = { attempts: 0, retries: 0, successes: 0, failures: 0 };
   _serpSearchLog = [];
+  _serpBudgetMax =
+    budgetMax != null && Number.isFinite(Number(budgetMax)) && Number(budgetMax) > 0
+      ? Math.floor(Number(budgetMax))
+      : null;
+  _serpBudgetHit = false;
 }
 function bumpSerpRequestCount() {
   _serpCallsThisRequest += 1;
+}
+function serpBudgetRemaining() {
+  if (_serpBudgetMax == null) return Infinity;
+  return Math.max(0, _serpBudgetMax - _serpCallsThisRequest);
+}
+function markSerpBudgetHit() {
+  _serpBudgetHit = true;
 }
 function serpRequestCount() {
   return _serpCallsThisRequest;
@@ -401,8 +429,25 @@ function mergeListings(batches, limit) {
 }
 
 async function serpGetJson(params, label = "serpapi") {
+  if (serpBudgetRemaining() <= 0) {
+    markSerpBudgetHit();
+    const err = new Error(
+      `SerpApi budget cap reached (${_serpBudgetMax} searches this brief)`,
+    );
+    err.code = "SERP_BUDGET";
+    recordSerpSearchMeta(null, label, { attempt: 1, ok: false, error: err.message });
+    throw err;
+  }
   return withRetries(
     async (attempt = 1) => {
+      if (serpBudgetRemaining() <= 0) {
+        markSerpBudgetHit();
+        const err = new Error(
+          `SerpApi budget cap reached (${_serpBudgetMax} searches this brief)`,
+        );
+        err.code = "SERP_BUDGET";
+        throw err;
+      }
       bumpSerpRequestCount();
       _serpStats.attempts += 1;
       if (attempt > 1) _serpStats.retries += 1;
@@ -886,7 +931,10 @@ app.post("/market/prices", async (req, res) => {
     req.body || {};
   const startedAt = Date.now();
   const isBulk = Boolean(bulkMode);
-  beginSerpRequestCount();
+  const glHint = String(gl || countryCode || "").toLowerCase();
+  // Pakistan: hard cap SerpApi calls per brief (cost control). Override via SERP_BUDGET_PK.
+  const pkBudget = Number(process.env.SERP_BUDGET_PK || 5);
+  beginSerpRequestCount(glHint === "pk" || glHint === "pakistan" ? pkBudget : null);
 
   if (!productName || typeof productName !== "string") {
     return res.status(400).json({ error: "productName is required" });
@@ -1344,17 +1392,22 @@ app.post("/market/prices", async (req, res) => {
     }
 
     const elapsedMs = Date.now() - startedAt;
+    const searchesUsed = serpRequestCount();
     console.log(
       `[serpapi] summary engine=${primary.engine} primary=${(primary.listings || []).length} ` +
         `alts=${altCount} site=${siteListings.length} sitesTried=${siteResult.sitesTried} ` +
         `direct=${directListings.length} wholesale=${wholesaleListings.length} page=${pageEnriched} local=${localFinal} foreign=${foreignFinal} ` +
-        `total=${listings.length} ms=${elapsedMs}`,
+        `total=${listings.length} searches=${searchesUsed}` +
+        `${_serpBudgetMax != null ? ` budget=${_serpBudgetMax} hit=${_serpBudgetHit}` : ""} ` +
+        `ms=${elapsedMs}`,
     );
 
     return res.json({
       listings,
       listings_raw: listingsRawBeforeFilter,
-      serpapi_searches: serpRequestCount(),
+      serpapi_searches: searchesUsed,
+      serp_budget_max: _serpBudgetMax,
+      serp_budget_hit: _serpBudgetHit,
       serpapi_stats: serpRequestStats(),
       serpapi_search_log: searchLog,
       serp_source_status: sourceStatus,
