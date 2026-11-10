@@ -8,7 +8,7 @@
     - backend pytest
     - market-service npm test
     - scripts/smoke_deal_finder_region.py --fixtures
-    - frontend: npm ci && npm run build (tsc -b + vite)
+    - frontend: npm ci && npm test (vitest) && npm run build (tsc -b + vite)
   Tears down services and removes the worktree unless -KeepWorktree.
 
   Local secrets are copied from the source repo's backend/.env and
@@ -190,10 +190,13 @@ try {
   Pop-Location
   if ($smokeCode -ne 0) { Fail "fixture smoke failed (exit $smokeCode)" }
 
-  Write-Step "Frontend npm ci + build (tsc -b && vite build)"
+  Write-Step "Frontend npm ci + vitest + build (tsc -b && vite build)"
   Push-Location (Join-Path $WorktreePath "frontend")
   npm ci --no-fund --no-audit
   if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "frontend npm ci failed" }
+  npm test
+  $feTestCode = $LASTEXITCODE
+  if ($feTestCode -ne 0) { Pop-Location; Fail "frontend vitest failed (exit $feTestCode)" }
   npm run build
   $feCode = $LASTEXITCODE
   Pop-Location
