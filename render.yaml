@@ -4,6 +4,9 @@
 #
 # Note: services use Root Directory backend/ and market-service/; the full
 # repo is still cloned so shared/ is available to the API.
+#
+# Persistent disk: free plan does NOT support disks. council-api uses
+# plan starter so a disk can be attached (see docs/DEPLOY_VERCEL_RENDER.md).
 
 services:
   - type: web
@@ -32,19 +35,31 @@ services:
         value: "1"
       - key: SERPAPI_KEY
         sync: false
+      - key: MARKET_SERVICE_SECRET
+        sync: false
 
   - type: web
     name: council-api
     runtime: python
-    plan: free
+    # Free = no persistent disk (SQLite wiped on every deploy/restart).
+    # Starter = disk allowed; data survives redeploys; still one instance.
+    plan: starter
     region: oregon
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
+    disk:
+      name: council-api-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.0"
+      - key: DB_PATH
+        value: /var/data/users.db
+      - key: PERSISTENT_DISK_MOUNT
+        value: /var/data
       - key: MARKET_SERVICE_URL
         value: https://council-market.onrender.com
       - key: FRONTEND_ORIGIN
@@ -71,3 +86,7 @@ services:
         value: openai/gpt-oss-20b
       - key: ALERTS_SCHEDULER
         value: "0"
+      - key: FREE_BRIEFS_PER_MONTH
+        value: "3"
+      - key: MARKET_SERVICE_SECRET
+        sync: false
