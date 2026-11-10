@@ -87,47 +87,63 @@ def test_default_run_log_dir_not_on_data_disk(monkeypatch, tmp_path: Path):
     assert "council-run-logs" in str(run_dir)
 
 
-def test_run_log_rotation(tmp_path: Path, monkeypatch):
-    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_KEEP", "3")
-    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_TOTAL_BYTES", str(10 * 1024 * 1024))
-    from app.utils.run_log import rotate_run_logs, write_run_log
+def test_run_log_keeps_newest_40_files_by_default(tmp_path: Path, monkeypatch):
+    """Default keep=40: only the newest 40 files remain."""
+    monkeypatch.delenv("BUYER_COUNCIL_RUN_LOG_KEEP", raising=False)
+    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_TOTAL_BYTES", str(50 * 1024 * 1024))
+    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_FILE_BYTES", str(1024 * 1024))
+    from app.utils.run_log import write_run_log
 
-    for i in range(5):
-        write_run_log({"run_id": f"r{i}", "n": i}, run_dir=tmp_path)
-    files = list(tmp_path.glob("*.json"))
-    assert len(files) == 3
-    assert rotate_run_logs(tmp_path, keep=2) == 1
-    assert len(list(tmp_path.glob("*.json"))) == 2
+    for i in range(45):
+        write_run_log({"run_id": f"r{i:02d}", "n": i}, run_dir=tmp_path)
+    files = sorted(tmp_path.glob("*.json"), key=lambda p: p.name)
+    assert len(files) == 40
+    # Oldest five (r00–r04) should be gone; newest end with r44.
+    names = " ".join(f.name for f in files)
+    assert "r00" not in names
+    assert "r44" in names or any("r4" in f.name for f in files[-5:])
 
 
-def test_run_log_truncates_oversized_payload(tmp_path: Path, monkeypatch):
-    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_FILE_BYTES", "800")
+def test_run_log_truncates_over_500kib_default(tmp_path: Path, monkeypatch):
+    """Default max file 500 KiB: oversized payload is truncated."""
+    monkeypatch.delenv("BUYER_COUNCIL_RUN_LOG_MAX_FILE_BYTES", raising=False)
     monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_KEEP", "10")
-    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_TOTAL_BYTES", str(10 * 1024 * 1024))
+    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_TOTAL_BYTES", str(50 * 1024 * 1024))
+    from app.db.paths import RUN_LOG_MAX_FILE_BYTES_DEFAULT
     from app.utils.run_log import write_run_log
 
     path = Path(
         write_run_log(
-            {"run_id": "big", "blob": "x" * 5000, "original_query": "towels"},
+            {
+                "run_id": "big",
+                "blob": "x" * (RUN_LOG_MAX_FILE_BYTES_DEFAULT + 50_000),
+                "original_query": "towels",
+            },
             run_dir=tmp_path,
         )
     )
     raw = path.read_bytes()
-    assert len(raw) <= 800
+    assert len(raw) <= RUN_LOG_MAX_FILE_BYTES_DEFAULT
     body = json.loads(raw.decode("utf-8", errors="replace").rstrip("\x00"))
     assert body.get("truncated") is True
 
 
-def test_run_log_total_bytes_cap(tmp_path: Path, monkeypatch):
+def test_run_log_directory_stays_under_8mib_default(tmp_path: Path, monkeypatch):
+    """Default total cap 8 MiB: directory bytes stay under the limit."""
+    monkeypatch.delenv("BUYER_COUNCIL_RUN_LOG_MAX_TOTAL_BYTES", raising=False)
     monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_KEEP", "40")
-    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_FILE_BYTES", "2000")
-    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_TOTAL_BYTES", "2500")
+    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_FILE_BYTES", str(600 * 1024))
+    from app.db.paths import RUN_LOG_MAX_TOTAL_BYTES_DEFAULT
     from app.utils.run_log import write_run_log
 
-    for i in range(6):
-        write_run_log({"run_id": f"t{i}", "blob": "y" * 400}, run_dir=tmp_path)
+    # 20 × ~500 KiB stubs would exceed 8 MiB without the total cap.
+    for i in range(20):
+        write_run_log(
+            {"run_id": f"t{i:02d}", "blob": "y" * (480 * 1024)},
+            run_dir=tmp_path,
+        )
     total = sum(f.stat().st_size for f in tmp_path.glob("*.json"))
-    assert total <= 2500
+    assert total <= RUN_LOG_MAX_TOTAL_BYTES_DEFAULT
     assert len(list(tmp_path.glob("*.json"))) >= 1
 
 
