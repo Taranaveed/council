@@ -13,10 +13,11 @@ def test_monthly_limit_reads_env(monkeypatch):
     assert monthly_limit() == 3
 
 
-def test_free_briefs_limit_message_is_user_safe(monkeypatch, tmp_path):
+def test_free_briefs_limit_message_uses_support_contact(monkeypatch, tmp_path):
     monkeypatch.setenv("DB_PATH", str(tmp_path / "users.db"))
     monkeypatch.setenv("ALERTS_SCHEDULER", "0")
     monkeypatch.setenv("FREE_BRIEFS_PER_MONTH", "3")
+    monkeypatch.setenv("SUPPORT_CONTACT", "testers@example.com")
     monkeypatch.delenv("SIGNUP_CODE", raising=False)
 
     from app.db import credits as credits_mod
@@ -54,7 +55,19 @@ def test_free_briefs_limit_message_is_user_safe(monkeypatch, tmp_path):
         )
     assert res.status_code == 402
     detail = res.json()["detail"]
-    assert isinstance(detail, str)
-    assert detail == "You've used all free briefs for this month (3 of 3). Try again next month."
+    assert detail == (
+        "You've used all free briefs for this month (3 of 3). "
+        "Contact testers@example.com for more."
+    )
     assert "traceback" not in detail.lower()
-    assert "/app/" not in detail
+
+
+def test_free_briefs_limit_message_default_contact(monkeypatch):
+    monkeypatch.delenv("SUPPORT_CONTACT", raising=False)
+    from app.core.prod_env import free_briefs_exhausted_message
+
+    msg = free_briefs_exhausted_message(used=3, limit=3)
+    assert msg == (
+        "You've used all free briefs for this month (3 of 3). "
+        "Contact the team for more."
+    )

@@ -658,13 +658,13 @@ async def deal_finder(
 
     credits = assert_can_run(int(_user["id"]))
     if credits.get("exhausted"):
-        used = credits.get("used_this_month")
-        limit = credits.get("limit")
+        from app.core.prod_env import free_briefs_exhausted_message
+
         raise HTTPException(
             status_code=402,
-            detail=(
-                f"You've used all free briefs for this month ({used} of {limit}). "
-                "Try again next month."
+            detail=free_briefs_exhausted_message(
+                used=credits.get("used_this_month"),
+                limit=credits.get("limit"),
             ),
         )
 

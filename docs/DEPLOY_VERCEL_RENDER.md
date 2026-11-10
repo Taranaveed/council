@@ -91,13 +91,15 @@ Set `FREE_BRIEFS_PER_MONTH=3` so each account sees “N of 3 free briefs left th
 | `JWT_SECRET` | API | **Prod yes** | insecure `dev-secret-…` | yes | **Refuses to start** if `RENDER`/`ENV=production` and missing/short/dev default |
 | `GROQ_API_KEY` | API | yes (for briefs) | unset | yes | Briefs fail without it |
 | `MARKET_SERVICE_URL` | API | yes | `http://localhost:3001` | no | Must be Render market URL in prod |
-| `MARKET_SERVICE_SECRET` | API + market | **Prod yes** | empty | yes | **Unsafe if unset:** market auth disabled (open). Set same value on both |
+| `MARKET_SERVICE_SECRET` | API + market | **Prod yes (24+ chars)** | empty | yes | **Same value on both.** Production **refuses to start** if missing/short. Non-prod: market open if unset |
 | `FRONTEND_ORIGIN` / `CORS_ORIGINS` | API | prod yes | localhost list | no | **Unsafe if empty in prod:** browser CORS may miss your Vercel URL |
 | `DB_PATH` | API | yes with disk | `backend/data/users.db` | no | `/var/data/users.db` on Render |
 | `PERSISTENT_DISK_MOUNT` | API | yes with disk | unset → `db_persistent=false` | no | `/var/data` |
-| `SIGNUP_CODE` | API | for closed signup | unset = open | yes | Set before inviting testers |
+| `SIGNUP_CODE` | API | for closed signup | unset = open | yes | Set before inviting testers. Prod logs “registration is OPEN” if unset; `/health.signup_open` |
+| `SUPPORT_CONTACT` | API | optional | `the team` | no | Used in free-brief limit message (“Contact … for more.”) |
 | `FREE_BRIEFS_PER_MONTH` | API | optional | `12` | no | Use `3` for testers |
 | `ALERTS_SCHEDULER` | API | optional | `1` | no | Use `0` for testers |
+| `RENDER` or `ENV=production` | API + market | **prod yes** | unset | no | Enables JWT / market-secret fail-fast and signup-open warning. Render sets `RENDER` automatically |
 | `SERPAPI_KEY` | market | yes | unset | yes | Searches fail without it |
 | `SERP_BUDGET_PK` | market | optional | `5` | no | Cap SerpApi calls per PK brief |
 | `DEFAULT_REGION` / `DEFAULT_COUNTRY_CODE` / `DEFAULT_LOCATION` / `DEFAULT_LANGUAGE` | API + market | optional | uk / United Kingdom / en | no | |
@@ -120,13 +122,13 @@ Set `FREE_BRIEFS_PER_MONTH=3` so each account sees “N of 3 free briefs left th
 
 1. **Env var backup** — export/screenshot every env on `council-api` and `council-market` to a secure offline note.
 2. **Plan upgrade + disk** — upgrade `council-api` off free; add disk mount `/var/data`, size **1 GB**. Do **not** apply Blueprint.
-3. **Set `DB_PATH=/var/data/users.db` and `PERSISTENT_DISK_MOUNT=/var/data`** (plus `SIGNUP_CODE`, `FREE_BRIEFS_PER_MONTH=3`, `ALERTS_SCHEDULER=0`; SMTP unset; `MARKET_SERVICE_SECRET` same on both — fresh if ever leaked).
+3. **Set env (API + market)** — `DB_PATH=/var/data/users.db`, `PERSISTENT_DISK_MOUNT=/var/data`, `SIGNUP_CODE` (invite), `SUPPORT_CONTACT` (e.g. your email), `FREE_BRIEFS_PER_MONTH=3`, `ALERTS_SCHEDULER=0`, SMTP unset; **`MARKET_SERVICE_SECRET`** same on **both** services, **≥24 chars** (fresh if ever leaked). Confirm `RENDER` is present (Render sets it) or set `ENV=production` on both.
 4. **Branch switch** — point **both** services at `uk-region-fixes` (Settings → Branch). Leave `master` alone until persistence passes.
 5. **Deploy** and **confirm commit hash** on both dashboards matches the intended SHA.
-6. **`/health` check** — API must show `"db_persistent": true` and `db_path` under `/var/data`.
+6. **`/health` check** — API must show `"db_persistent": true`, `db_path` under `/var/data`, and **`signup_open`: false**.
 7. **Persistence test** — register (with invite code), save a brief, redeploy/restart API, confirm login + brief survive.
 8. **Market 401 check** — `POST` market URL without secret header → **401**.
-9. **Signup-closed check** — register without code / wrong code → 403 with invite message; with code → OK.
+9. **Signup-closed check** — `/health` shows `signup_open=false`; register without code / wrong code → 403; with code → OK.
 10. **SerpApi before/after** — note dashboard usage; run one UK + one Pakistan brief; compare delta to budget (~≤5 searches/PK brief).
 11. **Backup + off-disk restore test** — `python scripts/backup_sqlite_db.py --db /var/data/users.db`; copy a backup **off** the disk; restore to a temp path or verify `--restore` on a copy.
 12. **Rollback** — if any step fails, switch both services’ branch back to the **last verified commit/branch** (do not debug live with testers waiting).

@@ -9,18 +9,27 @@ from typing import Any
 
 import httpx
 
+from app.core.prod_env import market_service_secret, require_market_service_secret_in_production
 from app.core.region_config import resolve_market_locale
 
 MARKET_SERVICE_URL = os.getenv("MARKET_SERVICE_URL", "http://localhost:3001").rstrip("/")
-MARKET_SERVICE_SECRET = (os.getenv("MARKET_SERVICE_SECRET") or "").strip()
+# Re-read at call time so tests can monkeypatch env before requests.
+def _market_service_secret() -> str:
+    return market_service_secret()
+
+
+MARKET_SERVICE_SECRET = _market_service_secret()
 # Short TTL: speeds repeat searches without freezing debate (agents get a fresh run_id).
 _CACHE_TTL_SEC = float(os.getenv("MARKET_CACHE_TTL_SEC", "90"))
 
+require_market_service_secret_in_production()
+
 
 def _market_headers() -> dict[str, str]:
-    if not MARKET_SERVICE_SECRET:
+    secret = _market_service_secret()
+    if not secret:
         return {}
-    return {"X-Market-Secret": MARKET_SERVICE_SECRET}
+    return {"X-Market-Secret": secret}
 # value: (ts, listings, warning, listings_raw)
 _market_cache: dict[
     str, tuple[float, list[dict[str, Any]], str | None, list[dict[str, Any]]]

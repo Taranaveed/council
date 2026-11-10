@@ -164,6 +164,7 @@ def test_health_includes_db_disk_and_run_logs(monkeypatch, tmp_path: Path):
     assert body["db_path"] == str(db.resolve())
     assert body["db_persistent"] is True
     assert "db_exists" in body
+    assert "signup_open" in body
     assert isinstance(body["disk"], dict)
     assert body["disk"]["free_bytes"] is not None
     assert body["disk"]["total_bytes"] is not None

@@ -23,6 +23,11 @@ from app.core.alerts_service import alerts_background_loop
 from app.db.briefs import init_briefs_db
 from app.db.marketplaces import init_marketplaces_db
 from app.db.notifications import init_notifications_db
+from app.core.prod_env import (
+    require_market_service_secret_in_production,
+    signup_is_open,
+    warn_if_signup_open_in_production,
+)
 from app.db.paths import (
     disk_usage_report,
     get_db_path,
@@ -34,17 +39,22 @@ from app.db.watchlist import init_watchlist_db
 
 _log = logging.getLogger("uvicorn.error")
 
+# Fail fast in production if we cannot authenticate to market-service.
+require_market_service_secret_in_production()
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     db_path = get_db_path()
     existed = db_path.exists()
     _log.info(
-        "DB_PATH=%s existed=%s db_persistent=%s",
+        "DB_PATH=%s existed=%s db_persistent=%s signup_open=%s",
         db_path,
         existed,
         is_db_on_persistent_disk(db_path),
+        signup_is_open(),
     )
+    warn_if_signup_open_in_production()
     init_db()
     init_marketplaces_db()
     init_briefs_db()
@@ -121,6 +131,7 @@ async def health_check():
         "db_path": str(db_path),
         "db_exists": db_path.exists(),
         "db_persistent": is_db_on_persistent_disk(db_path),
+        "signup_open": signup_is_open(),
         "disk": disk_usage_report(db_path),
         "run_logs": run_log_dir_usage(),
     }
