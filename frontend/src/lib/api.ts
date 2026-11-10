@@ -1,5 +1,6 @@
 /** Shared API helpers for Council */
 import { getApiBase } from './apiBase';
+import { formatApiErrorDetail } from './apiErrors';
 
 export type User = {
   id: number;
@@ -35,17 +36,7 @@ function authHeaders(): HeadersInit {
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({} as { detail?: unknown }));
-    const detail = body.detail;
-    let message = `Request failed (${res.status})`;
-    if (typeof detail === 'string') {
-      message = /groq|model_not_found|invalid_request|rate_limit/i.test(detail)
-        ? 'The agents could not finish this run. Wait a moment and try again.'
-        : detail;
-    }
-    else if (Array.isArray(detail)) {
-      message = detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join('; ');
-    }
-    throw new Error(message);
+    throw new Error(formatApiErrorDetail(body.detail, res.status));
   }
   return res.json();
 }
