@@ -70,139 +70,81 @@ Not written to local disk for persistence:
 - Uploads → none (no upload feature)
 - App logs → Render log stream (not a local file we manage)
 
-## 1. Push code Render will build
+## Tester accounts (invite-only)
 
-Render only deploys what is on `council` / `master` (unless you change the branch in the dashboard).
+Set `SIGNUP_CODE` on **council-api** to a long random string (not committed). Unset = open registration (local default).
 
-```bash
-# From your working branch, after committing:
-git push council HEAD:master
-# or: merge uk-region-fixes → master, then push
-```
+**Create a tester account**
 
-## 2. Render — market-service (`council-market`)
+1. Give the tester the site URL, their email, and the invite code (out of band — not in public chat).
+2. They open Register, enter email + password + **Invite code**, submit.
+3. Wrong/missing code → clear message; correct code → account created.
 
-- Root Directory: `market-service`
-- Build: `npm install`
-- Start: `npm start`
-- Health: `/health`
+You can also register yourself first with the code, then share login credentials for a shared tester user (less ideal).
 
-**Env**
+Set `FREE_BRIEFS_PER_MONTH=3` so each account sees “N of 3 free briefs left this month”. At the limit the API returns 402 with: *You've used all free briefs for this month (3 of 3). Try again next month.*
 
-| Key | Value |
-|-----|--------|
-| `SERPAPI_KEY` | your SerpApi key |
-| `MARKET_SERVICE_SECRET` | same value as API |
-| `DEFAULT_REGION` | `uk` |
-| `DEFAULT_COUNTRY_CODE` | `uk` |
-| `DEFAULT_LOCATION` | `United Kingdom` |
-| `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD` | `1` |
+## Environment variable audit
 
-## 3. Render — API (`council-api` / `council-api-rbod`)
+| Name | Service | Required | Default | Secret | Notes |
+|------|---------|----------|---------|--------|-------|
+| `JWT_SECRET` | API | **Prod yes** | insecure `dev-secret-…` | yes | **Refuses to start** if `RENDER`/`ENV=production` and missing/short/dev default |
+| `GROQ_API_KEY` | API | yes (for briefs) | unset | yes | Briefs fail without it |
+| `MARKET_SERVICE_URL` | API | yes | `http://localhost:3001` | no | Must be Render market URL in prod |
+| `MARKET_SERVICE_SECRET` | API + market | **Prod yes** | empty | yes | **Unsafe if unset:** market auth disabled (open). Set same value on both |
+| `FRONTEND_ORIGIN` / `CORS_ORIGINS` | API | prod yes | localhost list | no | **Unsafe if empty in prod:** browser CORS may miss your Vercel URL |
+| `DB_PATH` | API | yes with disk | `backend/data/users.db` | no | `/var/data/users.db` on Render |
+| `PERSISTENT_DISK_MOUNT` | API | yes with disk | unset → `db_persistent=false` | no | `/var/data` |
+| `SIGNUP_CODE` | API | for closed signup | unset = open | yes | Set before inviting testers |
+| `FREE_BRIEFS_PER_MONTH` | API | optional | `12` | no | Use `3` for testers |
+| `ALERTS_SCHEDULER` | API | optional | `1` | no | Use `0` for testers |
+| `SERPAPI_KEY` | market | yes | unset | yes | Searches fail without it |
+| `SERP_BUDGET_PK` | market | optional | `5` | no | Cap SerpApi calls per PK brief |
+| `DEFAULT_REGION` / `DEFAULT_COUNTRY_CODE` / `DEFAULT_LOCATION` / `DEFAULT_LANGUAGE` | API + market | optional | uk / United Kingdom / en | no | |
+| `GROQ_MODEL` / `GROQ_FALLBACK_MODEL` | API | optional | gpt-oss-120b / 20b | no | |
+| `JWT_EXPIRE_HOURS` | API | optional | `72` | no | |
+| `MARKET_CACHE_TTL_SEC` | API | optional | `90` | no | |
+| `BUYER_COUNCIL_RUN_LOG_*` | API | optional | temp dir; keep 40; 500KiB/file; 8MiB total | no | Ephemeral diagnostics |
+| `DB_BACKUP_DIR` | API/script | optional | `<db_dir>/backups` | no | |
+| `SMTP_*` / `ALERT_EMAIL_*` | API | optional | email off | yes (password) | Leave unset for testers |
+| `ALERTS_CRON_SECRET` / `EMAIL_BOUNCE_SECRET` | API | if using cron/bounce | unset | yes | |
+| `PORT` | market | optional | `3001` | no | Render injects |
+| `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD` | market | optional | unset | no | Use `1` on Render |
+| `REGION_PROFILES_DIR` | API + market | optional | repo `shared/region_profiles` | no | |
+| `RENDER` / `ENV` / `ENVIRONMENT` | API | auto/prod flag | unset | no | Triggers JWT production check |
+| `VITE_API_URL` | frontend (build) | prod yes | localhost fallback | no | Set on Vercel |
 
-- Root Directory: `backend`
-- Build: `pip install -r requirements.txt`
-- Start: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Health: `/health`
-- Plan: **Starter** (for disk) — see above
-- Disk: mount `/var/data`, `DB_PATH=/var/data/users.db`
+**Do not apply the Blueprint to existing services** — it can recreate them and clear secrets. Prefer manual plan/disk/env edits. Copy every current env value to a safe place **outside chat** before changes.
 
-**Env**
+## Pre-deploy / go-live checklist (do in this order)
 
-| Key | Value |
-|-----|--------|
-| `DB_PATH` | `/var/data/users.db` |
-| `PERSISTENT_DISK_MOUNT` | `/var/data` |
-| `GROQ_API_KEY` | your Groq key |
-| `GROQ_MODEL` | `openai/gpt-oss-120b` (optional) |
-| `GROQ_FALLBACK_MODEL` | `openai/gpt-oss-20b` (optional) |
-| `JWT_SECRET` | long random string |
-| `MARKET_SERVICE_URL` | `https://council-market.onrender.com` |
-| `MARKET_SERVICE_SECRET` | same as market |
-| `FRONTEND_ORIGIN` | your Vercel URL (no trailing slash) |
-| `CORS_ORIGINS` | same Vercel URL (comma-list if previews) |
-| `DEFAULT_REGION` / `DEFAULT_COUNTRY_CODE` | `uk` |
-| `ALERTS_SCHEDULER` | `0` on free/starter without email |
-| `FREE_BRIEFS_PER_MONTH` | e.g. `3` |
+1. **Env var backup** — export/screenshot every env on `council-api` and `council-market` to a secure offline note.
+2. **Plan upgrade + disk** — upgrade `council-api` off free; add disk mount `/var/data`, size **1 GB**. Do **not** apply Blueprint.
+3. **Set `DB_PATH=/var/data/users.db` and `PERSISTENT_DISK_MOUNT=/var/data`** (plus `SIGNUP_CODE`, `FREE_BRIEFS_PER_MONTH=3`, `ALERTS_SCHEDULER=0`; SMTP unset; `MARKET_SERVICE_SECRET` same on both — fresh if ever leaked).
+4. **Branch switch** — point **both** services at `uk-region-fixes` (Settings → Branch). Leave `master` alone until persistence passes.
+5. **Deploy** and **confirm commit hash** on both dashboards matches the intended SHA.
+6. **`/health` check** — API must show `"db_persistent": true` and `db_path` under `/var/data`.
+7. **Persistence test** — register (with invite code), save a brief, redeploy/restart API, confirm login + brief survive.
+8. **Market 401 check** — `POST` market URL without secret header → **401**.
+9. **Signup-closed check** — register without code / wrong code → 403 with invite message; with code → OK.
+10. **SerpApi before/after** — note dashboard usage; run one UK + one Pakistan brief; compare delta to budget (~≤5 searches/PK brief).
+11. **Backup + off-disk restore test** — `python scripts/backup_sqlite_db.py --db /var/data/users.db`; copy a backup **off** the disk; restore to a temp path or verify `--restore` on a copy.
+12. **Rollback** — if any step fails, switch both services’ branch back to the **last verified commit/branch** (do not debug live with testers waiting).
 
-Free Render services sleep after idle; first request can take ~30–60s (API wakes market). Starter can stay up depending on settings; disk still required for SQLite survival across **deploys**.
-
-## 4. Vercel — frontend
-
-```bash
-cd frontend
-npx vercel login
-npx vercel link          # root = frontend/
-npx vercel env add VITE_API_URL production
-# paste: https://council-api-rbod.onrender.com
-npx vercel --prod
-```
-
-Or Dashboard → Project → Settings → Environment Variables:
-
-- `VITE_API_URL` = `https://council-api-rbod.onrender.com` (Production + Preview)
-
-Build settings:
-
-- Framework: Vite
-- Root Directory: `frontend`
-- Build: `npm run build`
-- Output: `dist`
-
-`vercel.json` already SPA-rewrites to `index.html`.
-
-## 5. Smoke test
-
-1. `https://council-market.onrender.com/health`
-2. `https://council-api-rbod.onrender.com/health` — expect `"db_persistent": true` when disk is mounted
-3. Open Vercel URL → register → Deal Finder with a UK query
-4. US location should show: `Region not supported: 'us'. Council currently supports UK and Pakistan.` (not a bare `Request failed (422)`)
-
-## 6. Post-deploy persistence checklist
-
-Do this after every API deploy that touches storage or before inviting testers:
-
-1. Confirm `/health` has `"db_persistent": true` and `db_path` under `/var/data`.
-2. Register a fresh user (unique email).
-3. Run Deal Finder once (UK is enough) so a brief is saved; note `brief_id` from the response or UI.
-4. Trigger a **Manual Deploy** of council-api (same commit is fine — goal is restart + new filesystem for non-disk paths).
-5. After the new deploy is live, log in as the same user.
-6. Confirm the brief still loads (`GET /api/briefs/{id}` or UI history).
-7. If the brief is gone or login fails as “new user”, the disk/`DB_PATH` wiring is wrong — **do not invite testers**.
-
-## 7. SQLite backup and restore
-
-### Backup (nightly or on-demand)
-
-Uses the **SQLite backup API** (`Connection.backup`), not a raw file copy — safe with WAL.
+### SQLite backup / restore commands
 
 ```bash
-# On a machine/shell that can see the DB file (Render shell, or local):
-python scripts/backup_sqlite_db.py
-# or:
 python scripts/backup_sqlite_db.py --db /var/data/users.db --dir /var/data/backups
+# Keep last 7. Copy a file off-disk, then:
+python scripts/backup_sqlite_db.py --db /tmp/users-restore-test.db \
+  --restore /path/to/copied/users-….db
 ```
 
-- Writes `users-YYYYMMDDTHHMMSSZ.db` into the backup dir.
-- Keeps the **last 7** dated files (deletes older).
-- Env overrides: `DB_PATH`, `DB_BACKUP_DIR`.
+## Vercel — frontend
 
-Schedule on Render: Cron Job (Starter+) running the same command with the disk mounted, or run on-demand from the API shell before risky deploys.
+- `VITE_API_URL` = `https://council-api-rbod.onrender.com`
+- Root: `frontend`; build: `npm run build`; output: `dist`
 
-### Restore
+## Blueprint (optional, new stacks only)
 
-1. Stop or scale down writers if possible (avoid half-written DB).
-2. Restore via the same API (clears live `-wal`/`-shm`):
-
-   ```bash
-   python scripts/backup_sqlite_db.py \
-     --db /var/data/users.db \
-     --restore /var/data/backups/users-YYYYMMDDTHHMMSSZ.db
-   ```
-
-3. Restart council-api.
-4. Check startup log `existed=True` and `/health`; log in and open a known brief.
-
-## Blueprint (optional)
-
-Repo root `render.yaml` can recreate services via Render → New → Blueprint. Review plan + disk fields before applying so you do not accidentally stay on free without a disk.
+Repo `render.yaml` is for greenfield Blueprint creates. **Do not** re-apply onto live `council-api` / `council-market` if that would wipe env.

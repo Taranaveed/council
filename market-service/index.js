@@ -66,7 +66,7 @@ app.use(express.json());
 /** Optional shared-secret auth for /market/* (set MARKET_SERVICE_SECRET on API + market). */
 function requireMarketSecret(req, res, next) {
   const expected = String(process.env.MARKET_SERVICE_SECRET || "").trim();
-  if (!expected) return next(); // disabled when unset (local dev)
+  if (!expected) return next(); // disabled when unset (local dev only — unsafe in prod)
   if (req.path === "/health" || req.path === "/") return next();
   const got =
     String(req.get("x-market-secret") || "").trim() ||
@@ -1549,6 +1549,15 @@ app.listen(PORT, () => {
       `DEFAULT_COUNTRY_CODE=${regionConfig.DEFAULT_COUNTRY_CODE} ` +
       `DEFAULT_LOCATION=${regionConfig.DEFAULT_LOCATION}`,
   );
+  const marketSecret = String(process.env.MARKET_SERVICE_SECRET || "").trim();
+  const prodLike =
+    Boolean(process.env.RENDER) ||
+    String(process.env.NODE_ENV || "").toLowerCase() === "production";
+  if (!marketSecret && prodLike) {
+    console.warn(
+      "[auth] MARKET_SERVICE_SECRET is unset — /market/* is open. Set the same secret on API + market.",
+    );
+  }
   if (!keyInfo.looksValid) {
     console.warn(`[serpapi] ${keyInfo.warning}`);
   } else {
