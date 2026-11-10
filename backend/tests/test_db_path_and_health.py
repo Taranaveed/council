@@ -1,6 +1,7 @@
 """DB_PATH env, mount-aware persistence, run-log rotation, backup/restore."""
 from __future__ import annotations
 
+import json
 import sqlite3
 import sys
 from pathlib import Path
@@ -88,6 +89,7 @@ def test_default_run_log_dir_not_on_data_disk(monkeypatch, tmp_path: Path):
 
 def test_run_log_rotation(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_KEEP", "3")
+    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_TOTAL_BYTES", str(10 * 1024 * 1024))
     from app.utils.run_log import rotate_run_logs, write_run_log
 
     for i in range(5):
@@ -96,6 +98,37 @@ def test_run_log_rotation(tmp_path: Path, monkeypatch):
     assert len(files) == 3
     assert rotate_run_logs(tmp_path, keep=2) == 1
     assert len(list(tmp_path.glob("*.json"))) == 2
+
+
+def test_run_log_truncates_oversized_payload(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_FILE_BYTES", "800")
+    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_KEEP", "10")
+    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_TOTAL_BYTES", str(10 * 1024 * 1024))
+    from app.utils.run_log import write_run_log
+
+    path = Path(
+        write_run_log(
+            {"run_id": "big", "blob": "x" * 5000, "original_query": "towels"},
+            run_dir=tmp_path,
+        )
+    )
+    raw = path.read_bytes()
+    assert len(raw) <= 800
+    body = json.loads(raw.decode("utf-8", errors="replace").rstrip("\x00"))
+    assert body.get("truncated") is True
+
+
+def test_run_log_total_bytes_cap(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_KEEP", "40")
+    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_FILE_BYTES", "2000")
+    monkeypatch.setenv("BUYER_COUNCIL_RUN_LOG_MAX_TOTAL_BYTES", "2500")
+    from app.utils.run_log import write_run_log
+
+    for i in range(6):
+        write_run_log({"run_id": f"t{i}", "blob": "y" * 400}, run_dir=tmp_path)
+    total = sum(f.stat().st_size for f in tmp_path.glob("*.json"))
+    assert total <= 2500
+    assert len(list(tmp_path.glob("*.json"))) >= 1
 
 
 def test_health_includes_db_disk_and_run_logs(monkeypatch, tmp_path: Path):

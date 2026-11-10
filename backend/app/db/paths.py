@@ -14,6 +14,8 @@ _DEFAULT_USERS_DB = _BACKEND_ROOT / "data" / "users.db"
 
 # Cap diagnostic run logs so they cannot fill the ephemeral volume.
 RUN_LOG_KEEP_DEFAULT = 40
+RUN_LOG_MAX_FILE_BYTES_DEFAULT = 500 * 1024  # 500 KiB per file
+RUN_LOG_MAX_TOTAL_BYTES_DEFAULT = 8 * 1024 * 1024  # 8 MiB across the dir
 
 
 def get_db_path() -> Path:
@@ -112,6 +114,21 @@ def run_log_keep() -> int:
     return RUN_LOG_KEEP_DEFAULT
 
 
+def _env_int(name: str, default: int) -> int:
+    raw = (os.getenv(name) or "").strip()
+    if raw.isdigit():
+        return max(1, int(raw))
+    return default
+
+
+def run_log_max_file_bytes() -> int:
+    return _env_int("BUYER_COUNCIL_RUN_LOG_MAX_FILE_BYTES", RUN_LOG_MAX_FILE_BYTES_DEFAULT)
+
+
+def run_log_max_total_bytes() -> int:
+    return _env_int("BUYER_COUNCIL_RUN_LOG_MAX_TOTAL_BYTES", RUN_LOG_MAX_TOTAL_BYTES_DEFAULT)
+
+
 def disk_usage_report(path: Path | None = None) -> dict[str, int | str | None]:
     """Filesystem capacity for the volume that holds ``path`` (default: DB)."""
     target = path or get_db_path()
@@ -155,4 +172,6 @@ def run_log_dir_usage() -> dict[str, int | str]:
         "file_count": count,
         "bytes": total,
         "keep": run_log_keep(),
+        "max_file_bytes": run_log_max_file_bytes(),
+        "max_total_bytes": run_log_max_total_bytes(),
     }
