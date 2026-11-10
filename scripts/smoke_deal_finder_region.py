@@ -688,7 +688,14 @@ def assert_case_a_payload(status_code: int, detail: str) -> None:
         and re.search(r"\d+\s*%|\d+\.\d+", detail)
     )
     record("A no duty/VAT rate numbers in response", not duty_vat, detail[:200])
-    scan_banned(detail, label="A response")
+    # Region rejection copy may name supported countries; that is intentional, not leakage.
+    cleaned = re.sub(
+        r"Council currently supports UK and Pakistan\.?",
+        "",
+        detail,
+        flags=re.I,
+    )
+    scan_banned(cleaned, label="A response")
 
 
 def run_fixture_smoke() -> int:
