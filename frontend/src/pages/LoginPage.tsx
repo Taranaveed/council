@@ -10,6 +10,7 @@ export function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [signupCode, setSignupCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [apiReady, setApiReady] = useState(false);
@@ -47,7 +48,7 @@ export function LoginPage() {
       if (mode === 'login') {
         await login(email, password);
       } else {
-        await register(email, password);
+        await register(email, password, signupCode);
       }
       navigate('/buyer');
     } catch (err) {
@@ -140,6 +141,18 @@ export function LoginPage() {
                 placeholder="At least 6 characters"
               />
             </label>
+            {mode === 'register' ? (
+              <label className="login-proto__field">
+                Invite code
+                <input
+                  type="text"
+                  autoComplete="one-time-code"
+                  value={signupCode}
+                  onChange={(e) => setSignupCode(e.target.value)}
+                  placeholder="Provided by the team (if required)"
+                />
+              </label>
+            ) : null}
 
             {error ? <p className="login-proto__error">{error}</p> : null}
 

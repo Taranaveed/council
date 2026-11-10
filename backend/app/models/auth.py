@@ -5,6 +5,7 @@ from typing import Literal, Optional
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
+    signup_code: Optional[str] = None
 
 
 class LoginRequest(BaseModel):

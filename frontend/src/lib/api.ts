@@ -116,13 +116,23 @@ export async function resolveGeoFromIp(): Promise<GeoInfo> {
   return handle(res);
 }
 
-export async function register(email: string, password: string): Promise<AuthResponse> {
+export async function register(
+  email: string,
+  password: string,
+  signupCode?: string,
+): Promise<AuthResponse> {
   try {
     await wakeApi(45000);
+    const body: { email: string; password: string; signup_code?: string } = {
+      email,
+      password,
+    };
+    const code = (signupCode || '').trim();
+    if (code) body.signup_code = code;
     const res = await fetch(`${getApiBase()}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(body),
     });
     return await handle(res);
   } catch (err) {

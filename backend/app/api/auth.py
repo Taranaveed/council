@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+import os
+
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.auth import (
     create_access_token,
@@ -14,17 +16,41 @@ from app.models.auth import (
     RoleRequest,
     UserOut,
 )
-from fastapi import Depends
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+_SIGNUP_CODE_REQUIRED_MSG = (
+    "Registration requires an invite code. Ask the person who invited you for the code."
+)
+_SIGNUP_CODE_WRONG_MSG = (
+    "That invite code is not valid. Check it and try again, or ask for a new invite."
+)
 
 
 def _user_out(user: dict) -> UserOut:
     return UserOut(id=user["id"], email=user["email"], role=user.get("role"))
 
 
+def _required_signup_code() -> str:
+    """When SIGNUP_CODE is set (non-empty), registration requires a matching code."""
+    return (os.getenv("SIGNUP_CODE") or "").strip()
+
+
 @router.post("/register", response_model=AuthResponse)
 def register(body: RegisterRequest):
+    expected = _required_signup_code()
+    if expected:
+        got = (body.signup_code or "").strip()
+        if not got:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=_SIGNUP_CODE_REQUIRED_MSG,
+            )
+        if got != expected:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=_SIGNUP_CODE_WRONG_MSG,
+            )
     if get_user_by_email(body.email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
