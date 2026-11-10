@@ -435,6 +435,7 @@ def compare_briefs(current: dict[str, Any], prior: dict[str, Any]) -> dict[str, 
 
 # Ensure table exists when module is imported in tests / late init
 def ensure_ready() -> None:
-    if not DB_PATH.parent.exists():
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    parent = DB_PATH.parent
+    if not parent.exists():
+        parent.mkdir(parents=True, exist_ok=True)
     init_briefs_db()

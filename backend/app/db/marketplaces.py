@@ -3,10 +3,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from pathlib import Path
 from typing import Any, Optional
 
-DB_PATH = Path(__file__).resolve().parents[2] / "data" / "marketplaces.db"
+from app.db.paths import get_marketplaces_db_path
 
 # Seed profiles: region_tags are lowercase keywords matched against user location
 SEED_PROFILES: list[dict[str, Any]] = [
@@ -214,8 +213,9 @@ SEED_PROFILES: list[dict[str, Any]] = [
 
 
 def _connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    path = get_marketplaces_db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path))
     conn.row_factory = sqlite3.Row
     return conn
 

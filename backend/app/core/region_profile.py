@@ -60,7 +60,7 @@ class RegionNotSupportedError(LookupError):
         self.profile_id = (profile_id or "").strip().lower() or "unknown"
         self.detail = detail or (
             f"Region not supported: '{self.profile_id}'. "
-            f"Supported regions: {', '.join(sorted(SUPPORTED_PROFILE_IDS))}."
+            "Council currently supports UK and Pakistan."
         )
         super().__init__(self.detail)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -22,12 +23,28 @@ from app.core.alerts_service import alerts_background_loop
 from app.db.briefs import init_briefs_db
 from app.db.marketplaces import init_marketplaces_db
 from app.db.notifications import init_notifications_db
+from app.db.paths import (
+    disk_usage_report,
+    get_db_path,
+    is_db_on_persistent_disk,
+    run_log_dir_usage,
+)
 from app.db.users import init_db
 from app.db.watchlist import init_watchlist_db
+
+_log = logging.getLogger("uvicorn.error")
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    db_path = get_db_path()
+    existed = db_path.exists()
+    _log.info(
+        "DB_PATH=%s existed=%s db_persistent=%s",
+        db_path,
+        existed,
+        is_db_on_persistent_disk(db_path),
+    )
     init_db()
     init_marketplaces_db()
     init_briefs_db()
@@ -98,7 +115,15 @@ app.include_router(focus_group_router)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    db_path = get_db_path()
+    return {
+        "status": "ok",
+        "db_path": str(db_path),
+        "db_exists": db_path.exists(),
+        "db_persistent": is_db_on_persistent_disk(db_path),
+        "disk": disk_usage_report(db_path),
+        "run_logs": run_log_dir_usage(),
+    }
 
 
 @app.get("/api/market/ping")

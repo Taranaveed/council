@@ -2,17 +2,43 @@
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
 from typing import Optional
 
-DB_PATH = Path(__file__).resolve().parents[2] / "data" / "users.db"
+from app.db.paths import get_db_path
 
 
 def _connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    path = get_db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path))
     conn.row_factory = sqlite3.Row
     return conn
+
+
+class _DBPathProxy:
+    """Path-like proxy so ``DB_PATH.parent`` tracks DB_PATH env at call time."""
+
+    def __fspath__(self) -> str:
+        return str(get_db_path())
+
+    def __str__(self) -> str:
+        return str(get_db_path())
+
+    def __repr__(self) -> str:
+        return repr(get_db_path())
+
+    @property
+    def parent(self):
+        return get_db_path().parent
+
+    def resolve(self):
+        return get_db_path()
+
+    def exists(self) -> bool:
+        return get_db_path().exists()
+
+
+DB_PATH = _DBPathProxy()
 
 
 def init_db() -> None:
